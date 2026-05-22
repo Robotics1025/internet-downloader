@@ -1,0 +1,31 @@
+"""Enum string values MUST match the strings used in the SQLite schema exactly.
+
+This catches drift between the domain layer and the database layer. If a value
+ever changes in one place but not the other, a migration is required and this
+test forces the conversation.
+"""
+import pytest
+
+from dm_api.domain.value_objects.download_status import DownloadStatus
+
+
+@pytest.mark.parametrize(
+    ("member", "expected"),
+    [
+        (DownloadStatus.PENDING, "pending"),
+        (DownloadStatus.QUEUED, "queued"),
+        (DownloadStatus.DOWNLOADING, "downloading"),
+        (DownloadStatus.PAUSED, "paused"),
+        (DownloadStatus.MERGING, "merging"),
+        (DownloadStatus.COMPLETED, "completed"),
+        (DownloadStatus.FAILED, "failed"),
+        (DownloadStatus.CANCELLED, "cancelled"),
+    ],
+)
+def test_download_status_values(member: DownloadStatus, expected: str) -> None:
+    assert member.value == expected
+    assert str(member) == expected
+
+
+def test_download_status_member_count() -> None:
+    assert len(DownloadStatus) == 8
