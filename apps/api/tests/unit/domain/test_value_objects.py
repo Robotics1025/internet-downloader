@@ -7,6 +7,8 @@ test forces the conversation.
 import pytest
 
 from dm_api.domain.value_objects.download_status import DownloadStatus
+from dm_api.domain.value_objects.queue_status import QueueStatus
+from dm_api.domain.value_objects.segment_status import SegmentStatus
 
 
 @pytest.mark.parametrize(
@@ -29,3 +31,37 @@ def test_download_status_values(member: DownloadStatus, expected: str) -> None:
 
 def test_download_status_member_count() -> None:
     assert len(DownloadStatus) == 8
+
+
+@pytest.mark.parametrize(
+    ("member", "expected"),
+    [
+        (SegmentStatus.PENDING, "pending"),
+        (SegmentStatus.DOWNLOADING, "downloading"),
+        (SegmentStatus.COMPLETED, "completed"),
+        (SegmentStatus.FAILED, "failed"),
+        (SegmentStatus.RETRYING, "retrying"),
+    ],
+)
+def test_segment_status_values(member: SegmentStatus, expected: str) -> None:
+    assert member.value == expected
+
+
+def test_segment_status_member_count() -> None:
+    assert len(SegmentStatus) == 5
+
+
+@pytest.mark.parametrize(
+    ("member", "expected"),
+    [
+        (QueueStatus.ACTIVE, "active"),
+        (QueueStatus.PAUSED, "paused"),
+        (QueueStatus.STOPPED, "stopped"),
+    ],
+)
+def test_queue_status_values(member: QueueStatus, expected: str) -> None:
+    assert member.value == expected
+
+
+def test_queue_status_member_count() -> None:
+    assert len(QueueStatus) == 3
