@@ -8,8 +8,12 @@ Entities are mutable dataclasses with `slots=True`. We test:
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from dm_api.domain.entities.download_queue import DownloadQueue
+from dm_api.domain.entities.download_segment import DownloadSegment
 from dm_api.domain.entities.download_task import DownloadTask
 from dm_api.domain.value_objects.download_status import DownloadStatus
+from dm_api.domain.value_objects.queue_status import QueueStatus
+from dm_api.domain.value_objects.segment_status import SegmentStatus
 
 
 def make_task(**overrides: object) -> DownloadTask:
@@ -63,3 +67,63 @@ def test_download_task_downloaded_size_can_increment() -> None:
     task = make_task()
     task.downloaded_size += 512
     assert task.downloaded_size == 512
+
+
+def make_segment(**overrides: object) -> DownloadSegment:
+    defaults: dict[str, object] = {
+        "id": uuid4(),
+        "download_id": uuid4(),
+        "segment_index": 0,
+        "start_byte": 0,
+        "end_byte": 1023,
+        "downloaded_bytes": 0,
+        "temp_file_path": "/tmp/seg_0.part",
+        "status": SegmentStatus.PENDING,
+        "retry_count": 0,
+        "last_error": None,
+    }
+    defaults.update(overrides)
+    return DownloadSegment(**defaults)  # type: ignore[arg-type]
+
+
+def test_download_segment_constructs() -> None:
+    seg = make_segment()
+    assert seg.segment_index == 0
+    assert seg.start_byte == 0
+    assert seg.end_byte == 1023
+    assert seg.status == SegmentStatus.PENDING
+    assert seg.retry_count == 0
+
+
+def test_download_segment_retry_count_increments() -> None:
+    seg = make_segment()
+    seg.retry_count += 1
+    seg.status = SegmentStatus.RETRYING
+    assert seg.retry_count == 1
+    assert seg.status == SegmentStatus.RETRYING
+
+
+def make_queue(**overrides: object) -> DownloadQueue:
+    defaults: dict[str, object] = {
+        "id": uuid4(),
+        "name": "default",
+        "max_parallel_downloads": 3,
+        "status": QueueStatus.ACTIVE,
+        "speed_limit": None,
+    }
+    defaults.update(overrides)
+    return DownloadQueue(**defaults)  # type: ignore[arg-type]
+
+
+def test_download_queue_constructs() -> None:
+    q = make_queue()
+    assert q.name == "default"
+    assert q.max_parallel_downloads == 3
+    assert q.status == QueueStatus.ACTIVE
+    assert q.speed_limit is None
+
+
+def test_download_queue_can_be_paused() -> None:
+    q = make_queue()
+    q.status = QueueStatus.PAUSED
+    assert q.status == QueueStatus.PAUSED
