@@ -97,10 +97,8 @@ def create_app() -> FastAPI:
 
         return JSONResponse(status_code=422, content={"detail": str(exc)})
 
-    from dm_api.presentation.routers import health
+    from dm_api.presentation.routers import downloads, health
     app.include_router(health.router)
-    # downloads router added in T13:
-    # from dm_api.presentation.routers import downloads
-    # app.include_router(downloads.router)
+    app.include_router(downloads.router)
 
     return app
