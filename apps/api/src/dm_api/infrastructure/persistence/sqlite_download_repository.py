@@ -97,6 +97,45 @@ class SQLiteDownloadRepository:
                 row = await cursor.fetchone()
                 return _row_to_task(row) if row else None
 
+    async def update(self, task: DownloadTask) -> None:
+        params: tuple[Any, ...] = (
+            task.url,
+            task.file_name,
+            task.save_path,
+            task.total_size,
+            task.downloaded_size,
+            task.status.value,
+            int(task.resume_supported),
+            task.segment_count,
+            task.category,
+            task.speed_limit,
+            task.checksum,
+            task.checksum_algorithm,
+            task.error_message,
+            task.created_at.isoformat(),
+            task.started_at.isoformat() if task.started_at else None,
+            task.completed_at.isoformat() if task.completed_at else None,
+            str(task.id),
+        )
+        async with aiosqlite.connect(self._db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            await conn.execute("PRAGMA foreign_keys = ON")
+            cursor = await conn.execute(
+                """
+                UPDATE downloads SET
+                    url = ?, file_name = ?, save_path = ?,
+                    total_size = ?, downloaded_size = ?, status = ?,
+                    resume_supported = ?, segment_count = ?, category = ?,
+                    speed_limit = ?, checksum = ?, checksum_algorithm = ?,
+                    error_message = ?, created_at = ?, started_at = ?, completed_at = ?
+                WHERE id = ?
+                """,
+                params,
+            )
+            if cursor.rowcount == 0:
+                raise LookupError(f"no download with id {task.id}")
+            await conn.commit()
+
     async def list_all(self) -> list[DownloadTask]:
         async with aiosqlite.connect(self._db_path) as conn:
             conn.row_factory = aiosqlite.Row

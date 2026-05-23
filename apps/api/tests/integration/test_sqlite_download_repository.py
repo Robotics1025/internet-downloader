@@ -128,3 +128,55 @@ async def test_optional_fields_roundtrip(db_url: str) -> None:
     assert fetched.error_message is None
     assert fetched.started_at == datetime(2026, 4, 1, 12, 0, tzinfo=UTC)
     assert fetched.completed_at is None
+
+
+@pytest.mark.integration
+async def test_update_persists_changed_fields(db_url: str) -> None:
+    repo = SQLiteDownloadRepository(db_url)
+    task = _make_task()
+    await repo.save(task)
+
+    task.status = DownloadStatus.DOWNLOADING
+    task.total_size = 8192
+    task.downloaded_size = 4096
+    task.started_at = datetime(2026, 5, 23, 12, 0, tzinfo=UTC)
+    await repo.update(task)
+
+    fetched = await repo.get_by_id(task.id)
+    assert fetched is not None
+    assert fetched.status == DownloadStatus.DOWNLOADING
+    assert fetched.total_size == 8192
+    assert fetched.downloaded_size == 4096
+    assert fetched.started_at == datetime(2026, 5, 23, 12, 0, tzinfo=UTC)
+
+
+@pytest.mark.integration
+async def test_update_missing_id_raises(db_url: str) -> None:
+    repo = SQLiteDownloadRepository(db_url)
+    task = _make_task()  # never saved
+    with pytest.raises(LookupError):
+        await repo.update(task)
+
+
+@pytest.mark.integration
+async def test_update_preserves_all_other_fields(db_url: str) -> None:
+    repo = SQLiteDownloadRepository(db_url)
+    task = _make_task(
+        url="https://example.com/keep.zip",
+        file_name="keep.zip",
+        save_path="/tmp/keep",
+        category="archive",
+    )
+    await repo.save(task)
+
+    task.status = DownloadStatus.PAUSED  # mutate only one field
+    await repo.update(task)
+
+    fetched = await repo.get_by_id(task.id)
+    assert fetched is not None
+    assert fetched.url == "https://example.com/keep.zip"
+    assert fetched.file_name == "keep.zip"
+    assert fetched.save_path == "/tmp/keep"
+    assert fetched.category == "archive"
+    assert fetched.status == DownloadStatus.PAUSED
+
