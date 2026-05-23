@@ -1,7 +1,7 @@
 """REST endpoints for download tasks.
 
-In Phase 2a, tasks are created but never started — they remain at
-status=PENDING. Phase 2b will add /start.
+Phase 2a added create + read endpoints. Phase 2b adds /start to kick off the
+actual download. Pause/resume/cancel come in later phases.
 """
 from __future__ import annotations
 
@@ -36,3 +36,9 @@ async def get_download(request: Request, id: UUID) -> DownloadDTO:
 async def list_downloads(request: Request) -> list[DownloadDTO]:
     tasks = await request.app.state.list_downloads.execute()
     return [DownloadDTO.from_entity(t) for t in tasks]
+
+
+@router.post("/{id}/start", status_code=202, response_model=DownloadDTO)
+async def start_download(request: Request, id: UUID) -> DownloadDTO:
+    task = await request.app.state.start_download.execute(id)
+    return DownloadDTO.from_entity(task)
