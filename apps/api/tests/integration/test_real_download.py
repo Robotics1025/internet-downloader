@@ -1,7 +1,6 @@
 """End-to-end download test using stdlib http.server + the real FastAPI app."""
 from __future__ import annotations
 
-import asyncio
 from collections.abc import AsyncIterator
 from pathlib import Path
 

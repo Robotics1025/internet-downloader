@@ -11,7 +11,6 @@ Lifespan responsibilities (in order):
 """
 from __future__ import annotations
 
-import asyncio
 import os
 import sys
 from collections.abc import AsyncIterator
@@ -87,7 +86,7 @@ def _run_migrations_sync() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db_url = _resolve_database_url()
-    await asyncio.to_thread(_run_migrations_sync)
+    _run_migrations_sync()
 
     repo = SQLiteDownloadRepository(db_url)
     event_bus = InMemoryEventBus()
