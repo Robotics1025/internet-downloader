@@ -1,8 +1,14 @@
 """Shared test fixtures and factory helpers."""
 from __future__ import annotations
 
+import threading
+from collections.abc import Iterator
 from datetime import UTC, datetime
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from uuid import uuid4
+
+import pytest
 
 from dm_api.domain.entities.download_queue import DownloadQueue
 from dm_api.domain.entities.download_segment import DownloadSegment
@@ -63,3 +69,45 @@ def make_queue(**overrides: object) -> DownloadQueue:
     }
     defaults.update(overrides)
     return DownloadQueue(**defaults)  # type: ignore[arg-type]
+
+
+# ============================================================
+# Phase 2b — integration test fixture
+# ============================================================
+
+
+class _StaticServer:
+    def __init__(self, base_url: str, root_dir: Path) -> None:
+        self.base_url = base_url
+        self.root_dir = root_dir
+
+
+@pytest.fixture
+def static_file_server(tmp_path: Path) -> Iterator[_StaticServer]:
+    """Spin up a stdlib http.server on a random localhost port serving tmp_path.
+
+    Yields a _StaticServer with `.base_url` and `.root_dir`. Stops the server
+    on teardown.
+    """
+    serve_dir = tmp_path / "static"
+    serve_dir.mkdir()
+
+    class _Handler(SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            super().__init__(*args, directory=str(serve_dir), **kwargs)
+
+        def log_message(self, format: str, *args) -> None:
+            # Silence stdout during tests
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    server.daemon_threads = True
+    port = server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield _StaticServer(base_url=f"http://127.0.0.1:{port}", root_dir=serve_dir)
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
