@@ -36,3 +36,13 @@ def test_zero_rate_raises() -> None:
 def test_negative_rate_raises() -> None:
     with pytest.raises(ValueError):
         SpeedLimitPolicy.bucket_capacity(-1)
+
+
+def test_refill_per_second_zero_raises() -> None:
+    with pytest.raises(ValueError):
+        SpeedLimitPolicy.refill_per_second(0)
+
+
+def test_refill_per_second_negative_raises() -> None:
+    with pytest.raises(ValueError):
+        SpeedLimitPolicy.refill_per_second(-1)

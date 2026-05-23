@@ -41,7 +41,7 @@ strict = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers --cov=src/dm_api --cov-report=term-missing -p no:launch_testing -p no:launch_ros -p no:ament_flake8 -p no:ament_xmllint -p no:ament_copyright -p no:ament_pep257 -p no:ament_lint"
+addopts = "-ra --strict-markers --cov=src/dm_api/domain --cov-fail-under=95 --cov-report=term-missing -p no:launch_testing -p no:launch_ros -p no:ament_flake8 -p no:ament_xmllint -p no:ament_copyright -p no:ament_pep257 -p no:ament_lint"
 markers = [
     "integration: tests that hit the filesystem or database",
 ]
