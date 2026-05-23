@@ -91,6 +91,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     repo = SQLiteDownloadRepository(db_url)
     event_bus = InMemoryEventBus()
 
+    from dm_api.application.services.progress_service import ProgressService
+    progress_service = ProgressService(repo)
+    progress_service.start()
+    app.state.progress_service = progress_service
+
     async with create_http_client() as http_client:
         metadata_probe = HttpxMetadataProbe(http_client)
 
@@ -114,6 +119,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
 
         yield
+        
+        await progress_service.stop()
 
 
 def create_app() -> FastAPI:
@@ -140,7 +147,9 @@ def create_app() -> FastAPI:
         return JSONResponse(status_code=502, content={"detail": str(exc)})
 
     from dm_api.presentation.routers import downloads, health
+    from dm_api.presentation.websocket import progress_gateway
     app.include_router(health.router)
     app.include_router(downloads.router)
+    app.include_router(progress_gateway.router)
 
     return app
