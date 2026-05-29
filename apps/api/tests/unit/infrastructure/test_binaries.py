@@ -81,3 +81,142 @@ def test_probe_uses_resolved_yt_dlp(monkeypatch: pytest.MonkeyPatch) -> None:
     asyncio.run(probe._probe_once("https://example.com/video"))
 
     assert captured_args[0] == "/opt/packaged/yt-dlp"
+
+
+def test_worker_uses_resolved_yt_dlp(monkeypatch: pytest.MonkeyPatch) -> None:
+    import asyncio
+
+    from dm_api.domain.entities.download_task import DownloadTask
+    from dm_api.domain.value_objects.download_status import DownloadStatus
+    from dm_api.infrastructure.media import ytdlp_worker
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    monkeypatch.setenv("DM_YTDLP_BIN", "/opt/packaged/yt-dlp")
+    monkeypatch.delenv("DM_FFMPEG_BIN", raising=False)
+    # Ensure ffmpeg_bin() returns None (no ffmpeg on PATH in this scenario).
+    from dm_api.infrastructure.media import binaries as _binaries
+    monkeypatch.setattr(_binaries.shutil, "which", lambda name: None)
+
+    captured_args: list[str] = []
+
+    class _StubProc:
+        returncode = 0
+        stdout = None
+
+        async def wait(self) -> int:
+            return 0
+
+    async def _stub_exec(*args: str, **kwargs: object) -> _StubProc:
+        captured_args.extend(args)
+        proc = _StubProc()
+
+        class _EmptyStdout:
+            async def readline(self) -> bytes:
+                return b""
+
+        proc.stdout = _EmptyStdout()  # type: ignore[assignment]
+        return proc
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", _stub_exec)
+
+    # Avoid Path(task.save_path).mkdir() side effects in tests.
+    monkeypatch.setattr(ytdlp_worker.Path, "mkdir", lambda *a, **kw: None)
+
+    class _NoopRepo:
+        async def update(self, task: object) -> None: ...
+
+    task = DownloadTask(
+        id=uuid4(),
+        url="https://example.com/v",
+        file_name="media.download",
+        save_path="/tmp",
+        total_size=None,
+        downloaded_size=0,
+        status=DownloadStatus.DOWNLOADING,
+        category="video",
+        speed_limit=None,
+        resume_supported=False,
+        segment_count=1,
+        checksum=None,
+        checksum_algorithm=None,
+        error_message=None,
+        created_at=datetime.now(UTC),
+        started_at=None,
+        completed_at=None,
+        media_format_id="bv*+ba/best",
+    )
+
+    worker = ytdlp_worker.YtDlpWorker(repo=_NoopRepo())
+    asyncio.run(worker._run_ytdlp(task))
+
+    assert captured_args[0] == "/opt/packaged/yt-dlp"
+    # When DM_FFMPEG_BIN is unset and PATH lookup returns None, the worker
+    # MUST NOT pass --ffmpeg-location at all.
+    assert "--ffmpeg-location" not in captured_args
+
+
+def test_worker_passes_ffmpeg_location_when_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    import asyncio
+
+    from dm_api.domain.entities.download_task import DownloadTask
+    from dm_api.domain.value_objects.download_status import DownloadStatus
+    from dm_api.infrastructure.media import ytdlp_worker
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    monkeypatch.setenv("DM_YTDLP_BIN", "/opt/packaged/yt-dlp")
+    monkeypatch.setenv("DM_FFMPEG_BIN", "/opt/packaged/ffmpeg")
+
+    captured_args: list[str] = []
+
+    class _StubProc:
+        returncode = 0
+
+        async def wait(self) -> int:
+            return 0
+
+    async def _stub_exec(*args: str, **kwargs: object) -> _StubProc:
+        captured_args.extend(args)
+        proc = _StubProc()
+
+        class _EmptyStdout:
+            async def readline(self) -> bytes:
+                return b""
+
+        proc.stdout = _EmptyStdout()  # type: ignore[attr-defined]
+        return proc
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", _stub_exec)
+    monkeypatch.setattr(ytdlp_worker.Path, "mkdir", lambda *a, **kw: None)
+
+    class _NoopRepo:
+        async def update(self, task: object) -> None: ...
+
+    task = DownloadTask(
+        id=uuid4(),
+        url="https://example.com/v",
+        file_name="media.download",
+        save_path="/tmp",
+        total_size=None,
+        downloaded_size=0,
+        status=DownloadStatus.DOWNLOADING,
+        category="video",
+        speed_limit=None,
+        resume_supported=False,
+        segment_count=1,
+        checksum=None,
+        checksum_algorithm=None,
+        error_message=None,
+        created_at=datetime.now(UTC),
+        started_at=None,
+        completed_at=None,
+        media_format_id="bv*+ba/best",
+    )
+
+    worker = ytdlp_worker.YtDlpWorker(repo=_NoopRepo())
+    asyncio.run(worker._run_ytdlp(task))
+
+    # The flag and value must appear consecutively.
+    idx = captured_args.index("--ffmpeg-location")
+    assert captured_args[idx + 1] == "/opt/packaged/ffmpeg"
