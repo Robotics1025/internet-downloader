@@ -1,0 +1,13 @@
+# Pinned versions for the PyInstaller bundle. CI fetches these by URL and
+# verifies the SHA256 before packaging.
+
+[yt-dlp.linux-x86_64]
+version = 2026.03.17
+url = https://github.com/yt-dlp/yt-dlp/releases/download/2026.03.17/yt-dlp_linux
+sha256 = c2b0189f581fe4a2ddd41954f1bcb7d327db04b07ed0dea97e4f1b3e09b5dd8e
+
+[ffmpeg.linux-x86_64]
+version = 7.1
+url = https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+sha256 = abda8d77ce8309141f83ab8edf0596834087c52467f6badf376a6a2a4c87cf67
+archive_member = ffmpeg-7.0.2-amd64-static/ffmpeg

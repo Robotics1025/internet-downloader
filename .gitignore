@@ -10,6 +10,11 @@ __pycache__/
 htmlcov/
 dist/
 build/
+# Un-ignore the tracked pyinstaller sources (lock + script) within build/.
+!build/
+!build/pyinstaller/
+!build/pyinstaller/binaries.lock
+!build/pyinstaller/fetch_binaries.sh
 
 # Node / Electron (future phases)
 node_modules/
@@ -37,3 +42,12 @@ Thumbs.db
 
 # Claude harness
 .claude/
+
+# PyInstaller bundle artifacts and vendored binaries (re-fetched in CI).
+build/pyinstaller/binaries/
+build/pyinstaller/build/
+build/pyinstaller/dist/
+
+# Tauri shell artifacts.
+apps/shell/target/
+apps/shell/src-tauri-binaries/
