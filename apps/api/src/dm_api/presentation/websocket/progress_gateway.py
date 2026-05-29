@@ -2,14 +2,24 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from dm_api.presentation.schemas.progress_dto import ProgressSnapshotDTO
+from dm_api.application.ports.progress_snapshot import ProgressSnapshotDTO
 
 router = APIRouter(prefix="/ws", tags=["websocket"])
 logger = logging.getLogger(__name__)
+
+
+def _snapshot_to_json(snapshot: ProgressSnapshotDTO) -> dict:
+    """Serialize a ProgressSnapshotDTO to a JSON-safe dict."""
+    d = dataclasses.asdict(snapshot)
+    # UUID → str, Enum → value
+    d["download_id"] = str(snapshot.download_id)
+    d["status"] = snapshot.status.value
+    return d
 
 
 @router.websocket("/progress")
@@ -31,7 +41,7 @@ async def progress_endpoint(websocket: WebSocket) -> None:
     try:
         while True:
             snapshot = await queue.get()
-            await websocket.send_json(snapshot.model_dump(mode="json"))
+            await websocket.send_json(_snapshot_to_json(snapshot))
     except WebSocketDisconnect:
         pass
     except Exception as e:

@@ -49,11 +49,64 @@ export function useDownloads() {
     return updated;
   }, []);
 
-  const addDownload = useCallback(async (url: string, savePath: string, category = 'general') => {
-    const created = await api.addDownload({ url, save_path: savePath, category });
-    setDownloads((prev) => [created, ...prev]);
-    return created;
+  const deleteDownload = useCallback(async (id: string) => {
+    await api.deleteDownload(id);
+    setDownloads((prev) => prev.filter((d) => d.id !== id));
+    setProgress((prev) => {
+      if (!(id in prev)) return prev;
+      const { [id]: _drop, ...rest } = prev;
+      return rest;
+    });
   }, []);
 
-  return { downloads, progress, loading, error, startDownload, addDownload, refresh: fetchDownloads };
+  const addDownload = useCallback(
+    async (
+      url: string,
+      savePath: string,
+      category = 'general',
+      extras?: { file_name?: string; media_format_id?: string },
+    ) => {
+      const isPlaylist = url.includes('/playlist?list=') || url.includes('&list=');
+      if (isPlaylist && !extras?.media_format_id) {
+        const createdList = await api.addPlaylistDownload({ url, save_path: savePath, category });
+        setDownloads((prev) => [...createdList, ...prev]);
+        createdList.forEach(d => {
+          api.startDownload(d.id).then(started => {
+            setDownloads((prev) => prev.map((item) => (item.id === started.id ? started : item)));
+          }).catch(() => {});
+        });
+        return createdList[0];
+      }
+
+      const created = await api.addDownload({
+        url,
+        save_path: savePath,
+        category,
+        ...(extras?.file_name ? { file_name: extras.file_name } : {}),
+        ...(extras?.media_format_id ? { media_format_id: extras.media_format_id } : {}),
+      });
+      setDownloads((prev) => [created, ...prev]);
+      // Auto-start: kick off the download immediately so the user doesn't have
+      // to click Start. Surface start errors but keep the created task in the list.
+      try {
+        const started = await api.startDownload(created.id);
+        setDownloads((prev) => prev.map((d) => (d.id === started.id ? started : d)));
+        return started;
+      } catch {
+        return created;
+      }
+    },
+    [],
+  );
+
+  return {
+    downloads,
+    progress,
+    loading,
+    error,
+    startDownload,
+    addDownload,
+    deleteDownload,
+    refresh: fetchDownloads,
+  };
 }

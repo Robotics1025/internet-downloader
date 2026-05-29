@@ -10,7 +10,7 @@ from uuid import UUID
 
 from dm_api.application.ports.download_repository import DownloadRepository
 from dm_api.domain.value_objects.download_status import DownloadStatus
-from dm_api.presentation.schemas.progress_dto import ProgressSnapshotDTO
+from dm_api.application.ports.progress_snapshot import ProgressSnapshotDTO
 
 
 class _HistoryEntry(TypedDict):
@@ -31,7 +31,12 @@ class ProgressService:
         
         # Keep track of last N seconds of progress per download for speed calc
         self._history: dict[UUID, deque[_HistoryEntry]] = {}
-        
+        # Last status we broadcast per download, so we send a single snapshot
+        # on transitions into terminal states (failed/paused/cancelled). Without
+        # this the UI never learns that a downloading task has flipped to
+        # failed — it stays stuck at "0 B downloading" forever.
+        self._last_status: dict[UUID, DownloadStatus] = {}
+
         # Callbacks for new snapshots
         self._subscribers: set[Callable[[ProgressSnapshotDTO], None]] = set()
 
@@ -71,25 +76,38 @@ class ProgressService:
         now = self._clock()
 
         active_ids = set()
+        seen_ids = set()
 
         for task in tasks:
-            if task.status not in (DownloadStatus.DOWNLOADING, DownloadStatus.COMPLETED):
+            seen_ids.add(task.id)
+            prev_status = self._last_status.get(task.id)
+            status_changed = prev_status != task.status
+
+            is_downloading = task.status == DownloadStatus.DOWNLOADING
+            # Broadcast every tick while downloading (for live progress) and
+            # once on any status transition (so the UI sees completed/failed/
+            # paused/cancelled immediately).
+            if not is_downloading and not status_changed:
                 continue
 
-            active_ids.add(task.id)
-            if task.id not in self._history:
-                self._history[task.id] = deque()
+            self._last_status[task.id] = task.status
 
-            history = self._history[task.id]
-            history.append({"timestamp": now, "bytes": task.downloaded_size})
+            if is_downloading:
+                active_ids.add(task.id)
+                if task.id not in self._history:
+                    self._history[task.id] = deque()
 
-            # Evict entries older than 3 seconds
-            while history and now - history[0]["timestamp"] > 3.0:
-                history.popleft()
+                history = self._history[task.id]
+                history.append({"timestamp": now, "bytes": task.downloaded_size})
+
+                # Evict entries older than 3 seconds
+                while history and now - history[0]["timestamp"] > 3.0:
+                    history.popleft()
 
             # Compute speed
             speed_bps = 0.0
-            if len(history) > 1:
+            history = self._history.get(task.id)
+            if history and len(history) > 1:
                 dt = history[-1]["timestamp"] - history[0]["timestamp"]
                 db = history[-1]["bytes"] - history[0]["bytes"]
                 if dt > 0:
@@ -119,7 +137,11 @@ class ProgressService:
             for sub in self._subscribers:
                 sub(snapshot)
 
-        # Cleanup history for idle tasks
+        # Cleanup history for tasks that are no longer downloading
         for old_id in list(self._history.keys()):
             if old_id not in active_ids:
                 del self._history[old_id]
+        # Drop status tracking for tasks that no longer exist (deleted)
+        for old_id in list(self._last_status.keys()):
+            if old_id not in seen_ids:
+                del self._last_status[old_id]

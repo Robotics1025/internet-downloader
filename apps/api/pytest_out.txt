@@ -1,0 +1,149 @@
+============================= test session starts ==============================
+platform linux -- Python 3.14.5, pytest-9.0.3, pluggy-1.6.0 -- /home/robotics1025/Documents/project/apps/api/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/robotics1025/Documents/project/apps/api
+configfile: pyproject.toml
+plugins: anyio-4.13.0, asyncio-1.3.0, cov-7.1.0, respx-0.23.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 5 items
+
+tests/integration/test_real_download.py::test_real_download_end_to_end FAILED [ 20%]
+tests/integration/test_real_download.py::test_404_url_marks_failed PASSED [ 40%]
+tests/integration/test_real_download.py::test_start_already_running_returns_409 PASSED [ 60%]
+tests/integration/test_real_download.py::test_start_with_existing_destination_returns_409 FAILED [ 80%]
+tests/integration/test_real_download.py::test_start_unknown_id_returns_404 PASSED [100%]
+ERROR: Coverage failure: total of 72 is less than fail-under=90
+
+
+=================================== FAILURES ===================================
+________________________ test_real_download_end_to_end _________________________
+
+client = <httpx.AsyncClient object at 0x7fc5d11e16a0>
+static_file_server = <tests.conftest._StaticServer object at 0x7fc5d108fcb0>
+tmp_path = PosixPath('/tmp/pytest-of-robotics1025/pytest-2/test_real_download_end_to_end0')
+
+    @pytest.mark.integration
+    async def test_real_download_end_to_end(
+        client: AsyncClient, static_file_server: object, tmp_path: Path
+    ) -> None:
+        # Create a 256 KB file on the static server
+        payload = b"x" * (256 * 1024)
+        file_on_server = static_file_server.root_dir / "data.bin"  # type: ignore[attr-defined]
+        file_on_server.write_bytes(payload)
+    
+        save_dir = tmp_path / "downloads"
+        save_dir.mkdir()
+        url = f"{static_file_server.base_url}/data.bin"  # type: ignore[attr-defined]
+    
+        # Create
+        create_resp = await client.post(
+            "/api/downloads",
+            json={"url": url, "save_path": str(save_dir)},
+        )
+        assert create_resp.status_code == 201
+        download_id = create_resp.json()["id"]
+    
+        # Start
+        start_resp = await client.post(f"/api/downloads/{download_id}/start")
+        assert start_resp.status_code == 202
+        assert start_resp.json()["status"] == "downloading"
+    
+        # Wait for background worker to finish
+        await client.app_state.runner.wait_idle()  # type: ignore[attr-defined]
+    
+        # Verify
+        final_resp = await client.get(f"/api/downloads/{download_id}")
+        body = final_resp.json()
+        assert body["status"] == "completed"
+        assert body["downloaded_size"] == len(payload)
+    
+        downloaded_file = save_dir / "data.bin"
+>       assert downloaded_file.exists()
+E       AssertionError: assert False
+E        +  where False = exists()
+E        +    where exists = PosixPath('/tmp/pytest-of-robotics1025/pytest-2/test_real_download_end_to_end0/downloads/data.bin').exists
+
+tests/integration/test_real_download.py:60: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_initial, initial schema: downloads, segments, queues, queue_items, settings
+INFO  [alembic.runtime.migration] Running upgrade 0001_initial -> 0002_media_format_id, add media_format_id to downloads (for yt-dlp media downloads)
+_______________ test_start_with_existing_destination_returns_409 _______________
+
+client = <httpx.AsyncClient object at 0x7fc5d0f47130>
+static_file_server = <tests.conftest._StaticServer object at 0x7fc5d10b3230>
+tmp_path = PosixPath('/tmp/pytest-of-robotics1025/pytest-2/test_start_with_existing_desti0')
+
+    @pytest.mark.integration
+    async def test_start_with_existing_destination_returns_409(
+        client: AsyncClient, static_file_server: object, tmp_path: Path
+    ) -> None:
+        payload = b"z" * 1024
+        (static_file_server.root_dir / "blocked.bin").write_bytes(payload)  # type: ignore[attr-defined]
+    
+        save_dir = tmp_path / "downloads"
+        save_dir.mkdir()
+        # Pre-create the destination
+        (save_dir / "blocked.bin").write_bytes(b"existing content")
+    
+        url = f"{static_file_server.base_url}/blocked.bin"  # type: ignore[attr-defined]
+    
+        create_resp = await client.post(
+            "/api/downloads",
+            json={"url": url, "save_path": str(save_dir)},
+        )
+        download_id = create_resp.json()["id"]
+    
+        start_resp = await client.post(f"/api/downloads/{download_id}/start")
+>       assert start_resp.status_code == 409
+E       assert 202 == 409
+E        +  where 202 = <Response [202 Accepted]>.status_code
+
+tests/integration/test_real_download.py:140: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_initial, initial schema: downloads, segments, queues, queue_items, settings
+INFO  [alembic.runtime.migration] Running upgrade 0001_initial -> 0002_media_format_id, add media_format_id to downloads (for yt-dlp media downloads)
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.14.5-final-0 ________________
+
+Name                                                  Stmts   Miss  Cover   Missing
+-----------------------------------------------------------------------------------
+src/dm_api/application/__init__.py                        0      0   100%
+src/dm_api/application/ports/__init__.py                  0      0   100%
+src/dm_api/application/ports/download_repository.py       8      0   100%
+src/dm_api/application/ports/event_bus.py                 5      0   100%
+src/dm_api/application/ports/metadata_probe.py           10      0   100%
+src/dm_api/application/ports/segment_worker.py            5      0   100%
+src/dm_api/application/services/__init__.py               0      0   100%
+src/dm_api/application/services/download_runner.py       26      1    96%   37
+src/dm_api/application/services/progress_service.py      79     32    59%   39, 42, 46, 64-66, 76-120, 124-125
+src/dm_api/application/use_cases/__init__.py              0      0   100%
+src/dm_api/application/use_cases/add_download.py         80     19    76%   25, 31, 33, 81, 83, 91, 93, 97, 102, 105, 107, 109, 128-131, 133, 148, 157
+src/dm_api/application/use_cases/get_download.py         14      1    93%   27
+src/dm_api/application/use_cases/start_download.py       46      1    98%   61
+src/dm_api/domain/__init__.py                             0      0   100%
+src/dm_api/domain/entities/__init__.py                    0      0   100%
+src/dm_api/domain/entities/download_queue.py              5      0   100%
+src/dm_api/domain/entities/download_segment.py            5      0   100%
+src/dm_api/domain/entities/download_task.py               7      0   100%
+src/dm_api/domain/events/__init__.py                      0      0   100%
+src/dm_api/domain/events/domain_events.py                24      0   100%
+src/dm_api/domain/policies/__init__.py                    0      0   100%
+src/dm_api/domain/policies/checksum_policy.py            21     21     0%   6-33
+src/dm_api/domain/policies/retry_policy.py                9      9     0%   8-17
+src/dm_api/domain/policies/segmentation_policy.py        16     16     0%   6-30
+src/dm_api/domain/policies/speed_limit_policy.py         12     12     0%   8-21
+src/dm_api/domain/value_objects/__init__.py               0      0   100%
+src/dm_api/domain/value_objects/download_status.py       10      0   100%
+src/dm_api/domain/value_objects/queue_status.py           5      0   100%
+src/dm_api/domain/value_objects/segment_status.py         7      0   100%
+-----------------------------------------------------------------------------------
+TOTAL                                                   394    112    72%
+FAIL Required test coverage of 90% not reached. Total coverage: 71.57%
+=========================== short test summary info ============================
+FAILED tests/integration/test_real_download.py::test_real_download_end_to_end
+FAILED tests/integration/test_real_download.py::test_start_with_existing_destination_returns_409
+========================= 2 failed, 3 passed in 9.27s ==========================

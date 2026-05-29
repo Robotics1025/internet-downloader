@@ -26,6 +26,31 @@ export interface Download {
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
+  media_format_id: string | null;
+}
+
+export interface MediaFormat {
+  format_id: string;
+  ext: string;
+  resolution: string | null;
+  height: number | null;
+  fps: number | null;
+  vcodec: string | null;
+  acodec: string | null;
+  filesize: number | null;
+  tbr: number | null;
+  format_note: string | null;
+  has_video: boolean;
+  has_audio: boolean;
+}
+
+export interface MediaProbeResult {
+  is_media: boolean;
+  title: string | null;
+  duration: number | null;
+  thumbnail: string | null;
+  extractor: string | null;
+  formats: MediaFormat[];
 }
 
 export interface ProgressSnapshot {
@@ -44,4 +69,6 @@ export interface AddDownloadPayload {
   url: string;
   save_path: string;
   category?: string;
+  file_name?: string;
+  media_format_id?: string;
 }

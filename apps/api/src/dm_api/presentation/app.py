@@ -20,6 +20,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from dm_api.application.services.download_runner import DownloadRunner
@@ -39,9 +40,12 @@ from dm_api.application.use_cases.start_download import (
     StartDownloadUseCase,
 )
 from dm_api.infrastructure.events.in_memory_event_bus import InMemoryEventBus
+from dm_api.infrastructure.logging.setup import configure_logging
 from dm_api.infrastructure.http.http_client import create_http_client
 from dm_api.infrastructure.http.httpx_metadata_probe import HttpxMetadataProbe
 from dm_api.infrastructure.http.single_segment_worker import SingleSegmentWorker
+from dm_api.infrastructure.media.ytdlp_probe import YtDlpProbe
+from dm_api.infrastructure.media.ytdlp_worker import YtDlpWorker
 from dm_api.infrastructure.persistence.sqlite_download_repository import (
     SQLiteDownloadRepository,
 )
@@ -83,10 +87,20 @@ def _run_migrations_sync() -> None:
     command.upgrade(cfg, "head")
 
 
+import logging as _logging
+
+_logger = _logging.getLogger(__name__)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db_url = _resolve_database_url()
     _run_migrations_sync()
+    # alembic.ini contains a [loggers] section that calls fileConfig(), which
+    # replaces the root logger's handlers.  Re-apply our structured config so
+    # the JSON file handler is restored before any application code runs.
+    configure_logging()
+    _logger.info("dm-api started", extra={"db_url": db_url})
 
     repo = SQLiteDownloadRepository(db_url)
     event_bus = InMemoryEventBus()
@@ -102,12 +116,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         def _worker_factory() -> SingleSegmentWorker:
             return SingleSegmentWorker(http_client, repo)
 
-        runner = DownloadRunner(_worker_factory)
+        def _media_worker_factory() -> YtDlpWorker:
+            return YtDlpWorker(repo)
+
+        runner = DownloadRunner(_worker_factory, _media_worker_factory)
+        media_probe = YtDlpProbe()
 
         app.state.repo = repo
         app.state.event_bus = event_bus
         app.state.http_client = http_client
         app.state.metadata_probe = metadata_probe
+        app.state.media_probe = media_probe
         app.state.runner = runner
         app.state.add_download = AddDownloadUseCase(repo=repo, event_bus=event_bus)
         app.state.get_download = GetDownloadUseCase(repo=repo)
@@ -125,6 +144,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     app = FastAPI(title="dm-api", version="0.2.0", lifespan=lifespan)
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     @app.exception_handler(InvalidUrlError)
     async def _invalid_url_handler(request, exc):  # type: ignore[no-untyped-def]
@@ -146,10 +173,13 @@ def create_app() -> FastAPI:
     async def _probe_error_handler(request, exc):  # type: ignore[no-untyped-def]
         return JSONResponse(status_code=502, content={"detail": str(exc)})
 
-    from dm_api.presentation.routers import downloads, health
+    from dm_api.presentation.routers import config, downloads, health, media, stream
     from dm_api.presentation.websocket import progress_gateway
     app.include_router(health.router)
+    app.include_router(config.router)
     app.include_router(downloads.router)
+    app.include_router(media.router)
+    app.include_router(stream.router)
     app.include_router(progress_gateway.router)
 
     return app

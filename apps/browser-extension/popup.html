@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>DownloadMgr</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        width: 320px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #1a1a2e;
+        color: #e2e8f0;
+      }
+      .head {
+        padding: 14px 16px 10px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+      }
+      .head h1 { margin: 0; font-size: 14px; font-weight: 700; }
+      .head p { margin: 2px 0 0; font-size: 11px; color: #64748b; }
+      .status {
+        display: inline-flex; align-items: center; gap: 6px;
+        margin-top: 8px;
+        padding: 4px 8px; border-radius: 999px;
+        font-size: 11px; font-weight: 600;
+        background: rgba(34,197,94,0.12); color: #86efac;
+        border: 1px solid rgba(34,197,94,0.25);
+      }
+      .status.bad { background: rgba(248,113,113,0.12); color: #fca5a5; border-color: rgba(248,113,113,0.25); }
+      .status .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+      .body { padding: 12px 16px 14px; }
+      label { display: block; font-size: 11px; font-weight: 600; color: #94a3b8; margin: 8px 0 4px; }
+      input[type="url"] {
+        width: 100%;
+        padding: 8px 10px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px;
+        color: #e2e8f0;
+        font-size: 12px;
+        box-sizing: border-box;
+      }
+      input[type="url"]:focus { outline: none; border-color: #6366f1; }
+      .row { display: flex; gap: 8px; margin-top: 10px; }
+      button {
+        flex: 1;
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        background: #6366f1;
+        color: #fff;
+      }
+      button.ghost {
+        background: rgba(255,255,255,0.05);
+        color: #94a3b8;
+        border-color: rgba(255,255,255,0.08);
+      }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .msg { margin-top: 10px; font-size: 11px; }
+      .msg.ok { color: #86efac; }
+      .msg.err { color: #fca5a5; }
+      .tip { margin-top: 12px; font-size: 11px; color: #64748b; line-height: 1.4; }
+      .tip code { background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px; font-size: 10px; }
+    </style>
+  </head>
+  <body>
+    <div class="head">
+      <h1>Send to DownloadMgr</h1>
+      <p>Local backend · 127.0.0.1:6543</p>
+      <div id="status" class="status"><span class="dot"></span><span id="statusText">Checking…</span></div>
+    </div>
+    <div class="body">
+      <label for="url">URL</label>
+      <input id="url" type="url" placeholder="https://…" />
+      <div class="row">
+        <button id="useCurrent" class="ghost" type="button">Use current tab</button>
+        <button id="send" type="button">⬇ Send</button>
+      </div>
+      <div id="msg" class="msg"></div>
+      <p class="tip">On YouTube / Vimeo / Twitch / TikTok / Dailymotion you'll also see a <code>⬇ DownloadMgr</code> button on the video for picking the quality.</p>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

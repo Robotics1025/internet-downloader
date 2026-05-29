@@ -28,3 +28,4 @@ class DownloadTask:
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None
+    media_format_id: str | None = None

@@ -39,7 +39,7 @@ async def test_happy_path_persists_and_publishes() -> None:
     assert task.resume_supported is False
     assert task.segment_count == 1
     assert task.downloaded_size == 0
-    assert task.category == "general"
+    assert task.category == "archive"
     assert task.completed_at is None
     repo.save.assert_awaited_once_with(task)
     event_bus.publish.assert_awaited_once()
@@ -48,19 +48,25 @@ async def test_happy_path_persists_and_publishes() -> None:
     assert published_event.download_id == task.id
 
 
-async def test_default_save_path_is_platform_downloads() -> None:
+async def test_default_save_path_is_platform_downloads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("pathlib.Path.mkdir", lambda *a, **kw: None)
     use_case, _, _ = _make_use_case()
     task = await use_case.execute(url="https://example.com/file.zip")
-    expected = str(Path.home() / "Downloads")
+    expected = str(Path.home() / "Downloads" / "Archives")
     assert task.save_path == expected
 
 
-async def test_explicit_save_path_is_used() -> None:
+async def test_explicit_save_path_is_used(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("pathlib.Path.mkdir", lambda *a, **kw: None)
     use_case, _, _ = _make_use_case()
     task = await use_case.execute(
         url="https://example.com/file.zip", save_path="/mnt/external/dl"
     )
-    assert task.save_path == "/mnt/external/dl"
+    assert task.save_path == "/mnt/external/dl/Archives"
 
 
 async def test_custom_category_is_used() -> None:

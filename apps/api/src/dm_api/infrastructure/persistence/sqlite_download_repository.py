@@ -44,6 +44,7 @@ def _row_to_task(row: aiosqlite.Row) -> DownloadTask:
         created_at=datetime.fromisoformat(row["created_at"]),
         started_at=datetime.fromisoformat(row["started_at"]) if row["started_at"] else None,
         completed_at=datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None,
+        media_format_id=row["media_format_id"] if "media_format_id" in row.keys() else None,
     )
 
 
@@ -70,6 +71,7 @@ class SQLiteDownloadRepository:
             task.created_at.isoformat(),
             task.started_at.isoformat() if task.started_at else None,
             task.completed_at.isoformat() if task.completed_at else None,
+            task.media_format_id,
         )
         async with aiosqlite.connect(self._db_path) as conn:
             conn.row_factory = aiosqlite.Row
@@ -80,8 +82,8 @@ class SQLiteDownloadRepository:
                     id, url, file_name, save_path, total_size, downloaded_size,
                     status, resume_supported, segment_count, category, speed_limit,
                     checksum, checksum_algorithm, error_message,
-                    created_at, started_at, completed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    created_at, started_at, completed_at, media_format_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 params,
             )
@@ -115,6 +117,7 @@ class SQLiteDownloadRepository:
             task.created_at.isoformat(),
             task.started_at.isoformat() if task.started_at else None,
             task.completed_at.isoformat() if task.completed_at else None,
+            task.media_format_id,
             str(task.id),
         )
         async with aiosqlite.connect(self._db_path) as conn:
@@ -127,7 +130,8 @@ class SQLiteDownloadRepository:
                     total_size = ?, downloaded_size = ?, status = ?,
                     resume_supported = ?, segment_count = ?, category = ?,
                     speed_limit = ?, checksum = ?, checksum_algorithm = ?,
-                    error_message = ?, created_at = ?, started_at = ?, completed_at = ?
+                    error_message = ?, created_at = ?, started_at = ?, completed_at = ?,
+                    media_format_id = ?
                 WHERE id = ?
                 """,
                 params,
@@ -135,6 +139,15 @@ class SQLiteDownloadRepository:
             if cursor.rowcount == 0:
                 raise LookupError(f"no download with id {task.id}")
             await conn.commit()
+
+    async def delete(self, id: UUID) -> bool:
+        async with aiosqlite.connect(self._db_path) as conn:
+            await conn.execute("PRAGMA foreign_keys = ON")
+            cursor = await conn.execute(
+                "DELETE FROM downloads WHERE id = ?", (str(id),)
+            )
+            await conn.commit()
+            return cursor.rowcount > 0
 
     async def list_all(self) -> list[DownloadTask]:
         async with aiosqlite.connect(self._db_path) as conn:

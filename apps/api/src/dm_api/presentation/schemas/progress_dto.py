@@ -1,23 +1,9 @@
-"""Progress Data Transfer Object."""
-from __future__ import annotations
+"""Progress Data Transfer Object — re-exported from the application layer.
 
-from typing import Literal
-from uuid import UUID
+The canonical definition lives in ``dm_api.application.ports.progress_snapshot``
+so that the application service can import it without violating the layer rule.
+This module re-exports it for backward compatibility.
+"""
+from dm_api.application.ports.progress_snapshot import ProgressSnapshotDTO
 
-from pydantic import BaseModel, ConfigDict
-
-from dm_api.domain.value_objects.download_status import DownloadStatus
-
-
-class ProgressSnapshotDTO(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    event: Literal["progress"] = "progress"
-    download_id: UUID
-    downloaded_bytes: int
-    total_size: int | None
-    speed_bps: float
-    eta_seconds: float | None
-    percent: float | None
-    status: DownloadStatus
-    active_segments: int
+__all__ = ["ProgressSnapshotDTO"]

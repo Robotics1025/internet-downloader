@@ -17,6 +17,8 @@ class AddDownloadRequest(BaseModel):
     url: str = Field(min_length=1)
     save_path: str | None = None
     category: str | None = None
+    file_name: str | None = None
+    media_format_id: str | None = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -39,6 +41,7 @@ class DownloadDTO(BaseModel):
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None
+    media_format_id: str | None
 
     @classmethod
     def from_entity(cls, task: DownloadTask) -> DownloadDTO:
@@ -60,4 +63,5 @@ class DownloadDTO(BaseModel):
             created_at=task.created_at,
             started_at=task.started_at,
             completed_at=task.completed_at,
+            media_format_id=task.media_format_id,
         )

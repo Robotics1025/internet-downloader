@@ -55,19 +55,20 @@ class StartDownloadUseCase:
             raise InvalidStateError(
                 f"download {id} is in status {task.status.value}, must be pending"
             )
-        destination = Path(task.save_path) / task.file_name
-        if destination.exists():
-            raise DestinationExistsError(f"destination already exists: {destination}")
+        if task.media_format_id is None:
+            destination = Path(task.save_path) / task.file_name
+            if destination.exists():
+                raise DestinationExistsError(f"destination already exists: {destination}")
 
-        try:
-            metadata = await self._metadata_probe.probe(task.url)
-        except Exception as exc:
-            task.status = DownloadStatus.FAILED
-            task.error_message = f"metadata probe failed: {exc}"[:_ERROR_MESSAGE_MAX_LEN]
-            await self._repo.update(task)
-            raise MetadataProbeError(str(exc)) from exc
+            try:
+                metadata = await self._metadata_probe.probe(task.url)
+            except Exception as exc:
+                task.status = DownloadStatus.FAILED
+                task.error_message = f"metadata probe failed: {exc}"[:_ERROR_MESSAGE_MAX_LEN]
+                await self._repo.update(task)
+                raise MetadataProbeError(str(exc)) from exc
+            task.total_size = metadata.total_size
 
-        task.total_size = metadata.total_size
         task.resume_supported = False         # forced in 2b — multi-segment is Phase 3
         task.segment_count = 1                # forced in 2b
         task.status = DownloadStatus.DOWNLOADING
