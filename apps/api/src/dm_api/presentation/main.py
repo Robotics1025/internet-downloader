@@ -68,7 +68,16 @@ def main(argv: list[str] | None = None) -> None:
     # Announce the port BEFORE serving so whatever spawned us can pick it up
     # without polling.
     print(f"DM_PORT {actual_port}", flush=True)
-    config = uvicorn.Config(create_app(), fd=sock.fileno(), log_level="info")
+    # log_config=None tells uvicorn not to call dictConfig(LOGGING_CONFIG) on
+    # startup, which would otherwise wipe the root-logger handlers we just
+    # installed via configure_logging() and prevent any records from reaching
+    # the JSON file handler.
+    config = uvicorn.Config(
+        create_app(),
+        fd=sock.fileno(),
+        log_level="info",
+        log_config=None,
+    )
     server = uvicorn.Server(config)
     server.run()
 
