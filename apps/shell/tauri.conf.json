@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "DownloadMgr",
+  "version": "0.1.0",
+  "identifier": "com.downloadmgr.app",
+  "build": {
+    "beforeDevCommand": "cd ../desktop && npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "cd ../desktop && npm install && npm run build",
+    "frontendDist": "../desktop/dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["appimage"],
+    "icon": ["icons/icon.png"],
+    "category": "Utility",
+    "shortDescription": "Download manager for video, audio, and files.",
+    "longDescription": "A local-only download manager that wraps yt-dlp with a desktop UI.",
+    "resources": [],
+    "externalBin": ["binaries/dm-api"],
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
+  }
+}

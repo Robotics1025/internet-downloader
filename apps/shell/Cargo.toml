@@ -1,0 +1,26 @@
+[package]
+name = "downloadmgr-shell"
+version = "0.1.0"
+description = "DownloadMgr desktop shell"
+authors = ["Keith Paul Kato"]
+edition = "2021"
+rust-version = "1.75"
+
+[lib]
+name = "downloadmgr_shell_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["process", "io-util", "macros", "rt-multi-thread", "time"] }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
