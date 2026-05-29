@@ -46,3 +46,38 @@ def test_ffmpeg_bin_returns_none_when_missing(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.delenv("DM_FFMPEG_BIN", raising=False)
     monkeypatch.setattr(binaries.shutil, "which", lambda name: None)
     assert binaries.ffmpeg_bin() is None
+
+
+def test_probe_uses_resolved_yt_dlp(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The probe must shell out to the binary returned by ``yt_dlp_bin()``
+    rather than a hard-coded literal."""
+    import asyncio
+
+    from dm_api.infrastructure.media import ytdlp_probe
+
+    monkeypatch.setenv("DM_YTDLP_BIN", "/opt/packaged/yt-dlp")
+
+    captured_args: list[str] = []
+
+    class _StubProc:
+        returncode = 0
+
+        async def communicate(self) -> tuple[bytes, bytes]:
+            return (b"{}", b"")
+
+        async def wait(self) -> int:
+            return 0
+
+        def kill(self) -> None:
+            return None
+
+    async def _stub_exec(*args: str, **kwargs: object) -> _StubProc:
+        captured_args.extend(args)
+        return _StubProc()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", _stub_exec)
+
+    probe = ytdlp_probe.YtDlpProbe()
+    asyncio.run(probe._probe_once("https://example.com/video"))
+
+    assert captured_args[0] == "/opt/packaged/yt-dlp"
