@@ -74,16 +74,31 @@ def _resolve_database_url() -> str:
 
 
 def _alembic_root() -> Path:
+    """Return the directory that contains alembic.ini.
+
+    * In dev (``uv run python -m dm_api...``): the source-tree ``apps/api/``
+      directory, four levels above ``app.py``.
+    * In a PyInstaller one-file bundle: ``sys._MEIPASS``, where PyInstaller
+      extracts the ``alembic.ini`` and the ``migrations/`` data tree on startup.
+    """
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        return Path(meipass)
     return Path(__file__).resolve().parents[3]
 
 
 def _run_migrations_sync() -> None:
     api_root = _alembic_root()
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        # In the bundle alembic.ini sits at the MEIPASS root and the migrations
+        # package is extracted to dm_api/infrastructure/persistence/migrations/
+        # relative to MEIPASS.
+        migrations_dir = api_root / "dm_api" / "infrastructure" / "persistence" / "migrations"
+    else:
+        migrations_dir = api_root / "src" / "dm_api" / "infrastructure" / "persistence" / "migrations"
     cfg = Config(str(api_root / "alembic.ini"))
-    cfg.set_main_option(
-        "script_location",
-        str(api_root / "src/dm_api/infrastructure/persistence/migrations"),
-    )
+    cfg.set_main_option("script_location", str(migrations_dir))
     command.upgrade(cfg, "head")
 
 
