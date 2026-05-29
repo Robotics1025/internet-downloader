@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { Download, ProgressSnapshot } from '../types';
 import { streamUrl } from '../api';
 import { DownloadRow } from './DownloadRow';
@@ -84,14 +84,6 @@ export function InlineMediaPlayer({
       else await el.requestPictureInPicture();
     } catch (e) { console.error('PiP error', e); }
   }, []);
-
-  const handlePrev = useCallback(() => {
-    if (currentIndex > 0) onSelect(playlist[currentIndex - 1].id);
-  }, [currentIndex, playlist, onSelect]);
-
-  const handleNext = useCallback(() => {
-    if (currentIndex < playlist.length - 1) onSelect(playlist[currentIndex + 1].id);
-  }, [currentIndex, playlist, onSelect]);
 
   function handleRateChange(r: number) {
     const v = videoRef.current;

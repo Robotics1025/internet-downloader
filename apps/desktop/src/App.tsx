@@ -36,7 +36,7 @@ function App() {
   const allGroups = useMemo(() => buildGroups(downloads), [downloads]);
   const activeGroup = useMemo(() => {
     if (allGroups.length === 0) return null;
-    const wanted = activeGroupId && allGroups.find(g => g.id === activeGroupId);
+    const wanted = activeGroupId ? allGroups.find(g => g.id === activeGroupId) : null;
     return wanted ?? allGroups[0];
   }, [allGroups, activeGroupId]);
 
