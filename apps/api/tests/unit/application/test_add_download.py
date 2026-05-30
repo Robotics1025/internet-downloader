@@ -7,10 +7,12 @@ build a concrete fake.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
 
+from dm_api.application.ports.settings_repository import SettingsRepository
 from dm_api.application.use_cases.add_download import (
     AddDownloadUseCase,
     InvalidUrlError,
@@ -20,10 +22,30 @@ from dm_api.domain.events.domain_events import DownloadCreated
 from dm_api.domain.value_objects.download_status import DownloadStatus
 
 
-def _make_use_case() -> tuple[AddDownloadUseCase, AsyncMock, AsyncMock]:
+class _StubSettingsRepo(SettingsRepository):
+    """Minimal in-memory settings stub for unit tests."""
+
+    def __init__(self, values: dict[str, Any] | None = None) -> None:
+        self._values: dict[str, Any] = values or {}
+
+    async def get_all(self) -> dict[str, Any]:
+        return dict(self._values)
+
+    async def set_many(self, values: dict[str, Any]) -> None:
+        self._values.update(values)
+
+
+def _make_use_case(
+    settings: dict[str, Any] | None = None,
+) -> tuple[AddDownloadUseCase, AsyncMock, AsyncMock]:
     repo = AsyncMock()
     event_bus = AsyncMock()
-    return AddDownloadUseCase(repo=repo, event_bus=event_bus), repo, event_bus
+    settings_repo = _StubSettingsRepo(settings)
+    return (
+        AddDownloadUseCase(repo=repo, event_bus=event_bus, settings_repo=settings_repo),
+        repo,
+        event_bus,
+    )
 
 
 async def test_happy_path_persists_and_publishes() -> None:

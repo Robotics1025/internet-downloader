@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from dm_api.application.ports.download_repository import DownloadRepository
 from dm_api.application.ports.event_bus import EventBus
+from dm_api.application.ports.settings_repository import SettingsRepository
 from dm_api.domain.entities.download_task import DownloadTask
 from dm_api.domain.events.domain_events import DownloadCreated
 from dm_api.domain.value_objects.download_status import DownloadStatus
@@ -111,9 +112,15 @@ def _derive_file_name(url: str) -> str:
 
 
 class AddDownloadUseCase:
-    def __init__(self, repo: DownloadRepository, event_bus: EventBus) -> None:
+    def __init__(
+        self,
+        repo: DownloadRepository,
+        event_bus: EventBus,
+        settings_repo: SettingsRepository | None = None,
+    ) -> None:
         self._repo = repo
         self._event_bus = event_bus
+        self._settings = settings_repo
 
     async def execute(
         self,
@@ -133,6 +140,18 @@ class AddDownloadUseCase:
             resolved_file_name = "media.download"
         else:
             resolved_file_name = _derive_file_name(url)
+
+        # Load user settings once; used for both save_path fallback and
+        # auto_start_downloads behaviour below.
+        settings = await self._settings.get_all() if self._settings is not None else {}
+
+        # Resolve save_path: explicit arg wins; fall back to settings download_dir;
+        # finally fall back to the platform-default ~/Downloads.
+        if not save_path or not save_path.strip():
+            configured_dir = settings.get("download_dir", "")
+            if configured_dir:
+                save_path = str(configured_dir)
+
         base_save_path = (
             _validate_save_path(save_path) if save_path else _default_save_path()
         )
@@ -156,6 +175,10 @@ class AddDownloadUseCase:
         else:
             resolved_save_path = base_save_path
 
+        # Honour auto_start_downloads setting (default: True).
+        auto_start = bool(settings.get("auto_start_downloads", True))
+        initial_status = DownloadStatus.PENDING if auto_start else DownloadStatus.PAUSED
+
         task = DownloadTask(
             id=uuid4(),
             url=url,
@@ -163,7 +186,7 @@ class AddDownloadUseCase:
             save_path=resolved_save_path,
             total_size=None,
             downloaded_size=0,
-            status=DownloadStatus.PENDING,
+            status=initial_status,
             resume_supported=False,
             segment_count=1,
             category=effective_category,

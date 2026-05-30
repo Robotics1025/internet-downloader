@@ -144,6 +144,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         def _media_worker_factory() -> YtDlpWorker:
             return YtDlpWorker(repo)
 
+        # max_parallel is read by AddDownloadUseCase from settings at request
+        # time; the runner uses its own DEFAULT_MAX_PARALLEL. Wiring this all
+        # the way to a runtime-resizable semaphore is deferred — Plan 4 honors
+        # the UI's other settings (download_dir, auto_start_downloads) without
+        # needing this.
         runner = DownloadRunner(_worker_factory, _media_worker_factory)
         media_probe = YtDlpProbe()
 
@@ -153,7 +158,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.metadata_probe = metadata_probe
         app.state.media_probe = media_probe
         app.state.runner = runner
-        app.state.add_download = AddDownloadUseCase(repo=repo, event_bus=event_bus)
+        app.state.add_download = AddDownloadUseCase(
+            repo=repo, event_bus=event_bus, settings_repo=app.state.settings_repo
+        )
         app.state.get_download = GetDownloadUseCase(repo=repo)
         app.state.list_downloads = ListDownloadsUseCase(repo=repo)
         app.state.start_download = StartDownloadUseCase(
