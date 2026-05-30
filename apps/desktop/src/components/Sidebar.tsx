@@ -5,6 +5,7 @@ interface SidebarProps {
   onFilterChange: (f: string) => void;
   counts: Record<string, number>;
   categoryCounts: Record<string, number>;
+  onSettingsClick?: () => void;
 }
 
 // Minimal inline SVG icons — 16×16 viewBox, stroke-based
@@ -175,7 +176,7 @@ const NAV_ITEMS: { label: string; Icon: NavRowIconType }[] = [
   { label: 'Settings',          Icon: IconSettings },
 ];
 
-export function Sidebar({ activeFilter, onFilterChange, counts, categoryCounts }: SidebarProps) {
+export function Sidebar({ activeFilter, onFilterChange, counts, categoryCounts, onSettingsClick }: SidebarProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   const allCatCount = Object.values(categoryCounts).reduce((a, b) => a + b, 0);
@@ -303,56 +304,7 @@ export function Sidebar({ activeFilter, onFilterChange, counts, categoryCounts }
         borderRight: '1px solid var(--dm-color-border-subtle)',
       }}
     >
-      {/* Brand header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '9px',
-          padding: '14px 16px 12px',
-          borderBottom: '1px solid var(--dm-color-border-subtle)',
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            width: '26px',
-            height: '26px',
-            borderRadius: 'var(--dm-radius-md)',
-            background: 'var(--dm-color-accent-primary)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <IconArrowDown />
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 'var(--dm-text-sm)',
-              fontWeight: 'var(--dm-weight-semibold)',
-              color: 'var(--dm-color-fg-primary)',
-              lineHeight: 'var(--dm-leading-tight)',
-              letterSpacing: 'var(--dm-tracking-tight)',
-            }}
-          >
-            DownloadMgr
-          </div>
-          <div
-            style={{
-              fontSize: '10px',
-              color: 'var(--dm-color-fg-tertiary)',
-              lineHeight: 1,
-              marginTop: '2px',
-              letterSpacing: '0.01em',
-            }}
-          >
-            Fast · Reliable
-          </div>
-        </div>
-      </div>
+
 
       {/* Status filters */}
       <nav
@@ -440,7 +392,13 @@ export function Sidebar({ activeFilter, onFilterChange, counts, categoryCounts }
         aria-label="Utility navigation"
       >
         {NAV_ITEMS.map(({ label, Icon }) => (
-          <NavRow key={label} id={`nav-${label}`} label={label} Icon={Icon} />
+          <NavRow
+            key={label}
+            id={`nav-${label}`}
+            label={label}
+            Icon={Icon}
+            onClick={label === 'Settings' ? onSettingsClick : undefined}
+          />
         ))}
       </nav>
 

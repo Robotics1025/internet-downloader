@@ -3,6 +3,7 @@ import { useDownloads } from './hooks/useDownloads';
 import { useTheme } from './hooks/useTheme';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
+import { SettingsScreen } from './screens/SettingsScreen';
 import { ThemeSwitcher } from './components/ThemeSwitcher';
 import { FilterTabs } from './components/FilterTabs';
 import { DownloadRow } from './components/DownloadRow';
@@ -26,6 +27,7 @@ import {
 function App() {
   const [theme, setTheme] = useTheme();
   const { downloads, progress, loading, error, startDownload, addDownload, deleteDownload, refresh } = useDownloads();
+  const [view, setView] = useState<'downloads' | 'settings'>('downloads');
   const [sidebarFilter, setSidebarFilter] = useState('cat:video');
   const [tabFilter, setTabFilter] = useState('playlists');
   const [searchQuery, setSearchQuery] = useState('');
@@ -223,7 +225,7 @@ function App() {
   }, [sidebarFilter, tabFilter]);
 
   return (
-    <div id="app-root" className="flex flex-col h-screen w-full overflow-hidden text-white" style={{ background: '#0a0e1a' }}>
+    <div id="app-root" className="flex flex-col h-screen w-full overflow-hidden" style={{ background: 'var(--dm-color-bg-app)', color: 'var(--dm-color-fg-primary)' }}>
       {/* Top bar */}
       <TopBar
         onAddClick={() => setShowAdd(true)}
@@ -241,11 +243,14 @@ function App() {
           onFilterChange={handleSidebarFilter}
           counts={counts}
           categoryCounts={categoryCounts}
+          onSettingsClick={() => setView('settings')}
         />
 
         {/* Center content */}
-        <main id="main-content" className="flex-1 flex flex-col min-w-0" style={{ background: '#0f1423' }}>
-          {playing ? (
+        <main id="main-content" className="flex-1 flex flex-col min-w-0" style={{ background: 'var(--dm-color-bg-recessed)' }}>
+          {view === 'settings' ? (
+            <SettingsScreen onClose={() => setView('downloads')} />
+          ) : playing ? (
             <InlineMediaPlayer
               download={playing}
               playlist={filtered}
