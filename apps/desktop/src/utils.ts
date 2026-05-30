@@ -52,8 +52,8 @@ export function statusIcon(status: DownloadStatus): string {
   }
 }
 
-export function getCategoryFromFilename(filename: string): string {
-  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+export function getCategoryFromFilename(filename: string | null | undefined): string {
+  const ext = (filename || '').split('.').pop()?.toLowerCase() ?? '';
   if (['mp4', 'mkv', 'avi', 'mov', 'webm', 'flv', 'wmv', 'm4v'].includes(ext)) return 'video';
   if (['mp3', 'aac', 'flac', 'wav', 'ogg', 'wma', 'm4a', 'opus'].includes(ext)) return 'audio';
   if (['zip', 'tar', 'gz', 'rar', '7z', 'bz2', 'xz', 'zst'].includes(ext)) return 'compressed';
@@ -64,7 +64,7 @@ export function getCategoryFromFilename(filename: string): string {
 }
 
 /** Returns a gradient pair for file type thumbnails */
-export function fileTypeGradient(filename: string): [string, string] {
+export function fileTypeGradient(filename: string | null | undefined): [string, string] {
   const cat = getCategoryFromFilename(filename);
   switch (cat) {
     case 'video':      return ['#f97316', '#ea580c'];
@@ -78,13 +78,13 @@ export function fileTypeGradient(filename: string): [string, string] {
 }
 
 /** Returns extension label (uppercased, max 4 chars) for the thumbnail badge */
-export function fileExtLabel(filename: string): string {
-  const ext = filename.split('.').pop()?.toUpperCase() ?? '';
+export function fileExtLabel(filename: string | null | undefined): string {
+  const ext = (filename || '').split('.').pop()?.toUpperCase() ?? '';
   return ext.slice(0, 4);
 }
 
 /** Returns an icon character for the file category */
-export function fileCategoryIcon(filename: string): string {
+export function fileCategoryIcon(filename: string | null | undefined): string {
   const cat = getCategoryFromFilename(filename);
   switch (cat) {
     case 'video':      return '▶';

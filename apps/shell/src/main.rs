@@ -26,7 +26,7 @@ fn main() {
                 match sidecar::start(&handle).await {
                     Ok(port) => {
                         let init = format!("window.__DM_API_PORT__ = {port};");
-                        match WebviewWindowBuilder::new(
+                        let base = WebviewWindowBuilder::new(
                             &handle,
                             "main",
                             WebviewUrl::App("index.html".into()),
@@ -34,8 +34,16 @@ fn main() {
                         .title("DownloadMgr")
                         .inner_size(1280.0, 800.0)
                         .min_inner_size(900.0, 600.0)
-                        .initialization_script(&init)
-                        .build()
+                        .initialization_script(&init);
+
+                        // Apply window icon if available, then build
+                        let build_result = if let Some(icon) = handle.default_window_icon().cloned() {
+                            base.icon(icon).and_then(|b| b.build())
+                        } else {
+                            base.build()
+                        };
+
+                        match build_result
                         {
                             Ok(window) => {
                                 // Closing the window hides it to tray instead of quitting.

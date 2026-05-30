@@ -8,6 +8,7 @@ interface FilterTabsProps {
   onSearchToggle?: () => void;
   onSortToggle?: () => void;
   onViewToggle?: () => void;
+  isGridView?: boolean;
 }
 
 const DEFAULT_TABS = [
@@ -26,7 +27,7 @@ const VIDEO_TABS = [
   { key: 'downloaded', label: 'Downloaded' },
 ];
 
-export function FilterTabs({ activeTab, onTabChange, counts, activeCategory }: FilterTabsProps) {
+export function FilterTabs({ activeTab, onTabChange, counts, activeCategory, onViewToggle, isGridView }: FilterTabsProps) {
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
 
   const tabsToRender = activeCategory === 'video' ? VIDEO_TABS : DEFAULT_TABS;
@@ -36,8 +37,8 @@ export function FilterTabs({ activeTab, onTabChange, counts, activeCategory }: F
       id="filter-tabs"
       className="flex items-center px-5 gap-0 shrink-0"
       style={{
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        background: '#0f1423',
+        borderBottom: '1px solid var(--dm-color-border-subtle)',
+        background: 'var(--dm-color-bg-recessed)',
       }}
     >
       {/* Tabs */}
@@ -56,8 +57,8 @@ export function FilterTabs({ activeTab, onTabChange, counts, activeCategory }: F
               onMouseLeave={() => setHoveredTab(null)}
               className="relative px-3.5 py-2.5 text-[12px] font-medium transition-all duration-200 flex items-center gap-1.5"
               style={{
-                color: isActive ? '#e2e8f0' : isHovered ? '#8892a8' : '#505a6e',
-                background: isActive ? 'rgba(255,255,255,0.04)' : 'transparent',
+                color: isActive ? 'var(--dm-color-fg-primary)' : isHovered ? 'var(--dm-color-fg-secondary)' : 'var(--dm-color-fg-tertiary)',
+                background: isActive ? 'var(--dm-color-bg-hover)' : 'transparent',
                 borderRadius: '8px 8px 0 0',
               }}
             >
@@ -65,8 +66,8 @@ export function FilterTabs({ activeTab, onTabChange, counts, activeCategory }: F
               <span
                 className="text-[10px] tabular-nums px-1.5 py-0.5 rounded-md font-medium"
                 style={{
-                  background: isActive ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.04)',
-                  color: isActive ? '#3b82f6' : '#505a6e',
+                  background: isActive ? 'var(--dm-color-accent-subtle)' : 'var(--dm-color-bg-elevated)',
+                  color: isActive ? 'var(--dm-color-accent-primary)' : 'var(--dm-color-fg-tertiary)',
                 }}
               >
                 {key === 'all' ? counts['all'] ?? 0 : count}
@@ -74,7 +75,7 @@ export function FilterTabs({ activeTab, onTabChange, counts, activeCategory }: F
               {isActive && (
                 <div
                   className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full"
-                  style={{ background: '#3b82f6' }}
+                  style={{ background: 'var(--dm-color-accent-primary)' }}
                 />
               )}
             </button>
@@ -87,8 +88,8 @@ export function FilterTabs({ activeTab, onTabChange, counts, activeCategory }: F
         {/* Search */}
         <button
           className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-          style={{ color: '#505a6e' }}
-          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+          style={{ color: 'var(--dm-color-fg-tertiary)' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--dm-color-bg-hover)')}
           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           title="Search in list"
         >
@@ -100,8 +101,8 @@ export function FilterTabs({ activeTab, onTabChange, counts, activeCategory }: F
         {/* Filter */}
         <button
           className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-          style={{ color: '#505a6e' }}
-          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+          style={{ color: 'var(--dm-color-fg-tertiary)' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--dm-color-bg-hover)')}
           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           title="Sort & filter"
         >
@@ -111,11 +112,20 @@ export function FilterTabs({ activeTab, onTabChange, counts, activeCategory }: F
         </button>
         {/* Grid view */}
         <button
+          onClick={onViewToggle}
           className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-          style={{ color: '#505a6e' }}
-          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
-          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-          title="Grid view"
+          style={{
+            color: isGridView ? 'var(--dm-color-accent-primary)' : 'var(--dm-color-fg-tertiary)',
+            background: isGridView ? 'var(--dm-color-accent-subtle)' : 'transparent',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={e => {
+            if (!isGridView) e.currentTarget.style.background = 'var(--dm-color-bg-hover)';
+          }}
+          onMouseLeave={e => {
+            if (!isGridView) e.currentTarget.style.background = 'transparent';
+          }}
+          title={isGridView ? "List view" : "Grid view"}
         >
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
             <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />

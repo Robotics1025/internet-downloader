@@ -45,15 +45,41 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     return args
 
 
+DISCOVERY_PORT_RANGE = range(6543, 6553)  # 10 ports: 6543..6552
+"""Ports the browser extension scans to find the API. We try every port in this
+range sequentially before falling back to an OS-assigned ephemeral port, so the
+extension's narrow port scan keeps working even when 6543 is busy from a
+previous instance that hasn't fully released the socket yet."""
+
+
 def _bind(host: str, port: int) -> socket.socket:
-    """Return a bound + listening socket. If ``port`` is busy, fall back to an
-    OS-assigned port (port 0)."""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        sock.bind((host, port))
-    except OSError:
-        # Requested port is in use — let the OS pick one.
-        sock.close()
+    """Return a bound + listening socket.
+
+    Strategy when ``port`` is busy:
+      1. Try every port in ``DISCOVERY_PORT_RANGE`` (6543–6552) in order.
+      2. If none are free, fall back to an OS-assigned ephemeral port.
+    """
+    def _try_bind(p: int) -> socket.socket | None:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.bind((host, p))
+        except OSError:
+            s.close()
+            return None
+        return s
+
+    sock = _try_bind(port)
+    if sock is None:
+        # Sequential fall-through across the discovery range so the extension
+        # can still find us with a small scan.
+        for candidate in DISCOVERY_PORT_RANGE:
+            if candidate == port:
+                continue  # already tried
+            sock = _try_bind(candidate)
+            if sock is not None:
+                break
+    if sock is None:
+        # Last resort: OS picks anything.
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.bind((host, 0))
     sock.listen(128)

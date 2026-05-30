@@ -521,7 +521,7 @@ export function AddDownloadDialog({ onAdd, onClose }: AddDownloadDialogProps) {
                     height: '32px',
                     borderRadius: 'var(--dm-radius-sm)',
                     background: 'rgba(168,85,247,0.18)',
-                    color: '#d8b4fe',
+                    color: 'var(--dm-color-accent-primary-hover)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -535,7 +535,7 @@ export function AddDownloadDialog({ onAdd, onClose }: AddDownloadDialogProps) {
                   <p style={{ fontSize: 'var(--dm-text-sm)', fontWeight: 'var(--dm-weight-semibold)', color: 'var(--dm-color-fg-primary)', margin: 0 }}>
                     Playlist detected
                   </p>
-                  <p style={{ fontSize: '11px', color: '#c4b5fd', marginTop: '2px', margin: 0 }}>
+                  <p style={{ fontSize: '11px', color: 'var(--dm-color-fg-secondary)', marginTop: '2px', margin: 0 }}>
                     All videos in this YouTube playlist will be queued. Each gets sorted into its uploader's folder.
                   </p>
                 </div>

@@ -37,7 +37,7 @@ function formatTime(s: number): string {
 const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
 export function PlayerModal({ download, onClose }: PlayerModalProps) {
-  const kind = detectKind(download.file_name);
+  const kind = detectKind(download.file_name || '');
   const src = streamUrl(download.id);
 
   return (
@@ -50,21 +50,21 @@ export function PlayerModal({ download, onClose }: PlayerModalProps) {
         className="w-full rounded-2xl shadow-2xl flex flex-col"
         style={{
           maxWidth: kind === 'video' ? '1200px' : '720px',
-          background: '#0b0b14',
-          border: '1px solid rgba(255,255,255,0.1)',
+          background: 'var(--dm-color-bg-app)',
+          border: '1px solid var(--dm-color-border-strong)',
           maxHeight: '94vh',
         }}
         onClick={(e) => e.stopPropagation()}
       >
         <div
           className="flex items-center justify-between px-5 py-3 shrink-0"
-          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+          style={{ borderBottom: '1px solid var(--dm-color-border-subtle)' }}
         >
           <div className="min-w-0 flex-1 mr-3">
-            <p className="text-sm font-semibold text-white truncate" title={download.file_name}>
-              {download.file_name}
+            <p className="text-sm font-semibold truncate" style={{ color: 'var(--dm-color-fg-primary)' }} title={download.file_name || 'Unknown'}>
+              {download.file_name || 'Unknown'}
             </p>
-            <p className="text-[11px] truncate" style={{ color: '#64748b' }}>
+            <p className="text-[11px] truncate" style={{ color: 'var(--dm-color-fg-secondary)' }}>
               {download.save_path}
             </p>
           </div>
@@ -72,14 +72,14 @@ export function PlayerModal({ download, onClose }: PlayerModalProps) {
             href={src}
             download={download.file_name}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold mr-2"
-            style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.25)' }}
+            style={{ background: 'var(--dm-color-accent-subtle)', color: 'var(--dm-color-accent-primary)', border: '1px solid var(--dm-color-border-focus)' }}
           >
             ⬇ Save
           </a>
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-lg text-base"
-            style={{ color: '#94a3b8', background: 'rgba(255,255,255,0.04)' }}
+            style={{ color: 'var(--dm-color-fg-tertiary)', background: 'var(--dm-color-bg-hover)' }}
           >
             ✕
           </button>
@@ -102,11 +102,11 @@ export function PlayerModal({ download, onClose }: PlayerModalProps) {
               src={src}
               title={download.file_name}
               className="w-full"
-              style={{ height: '80vh', background: '#fff', border: 0 }}
+              style={{ height: '80vh', background: 'var(--dm-color-bg-app)', border: 0 }}
             />
           )}
           {kind === 'other' && (
-            <div className="text-center py-16 px-6" style={{ color: '#64748b' }}>
+            <div className="text-center py-16 px-6" style={{ color: 'var(--dm-color-fg-secondary)' }}>
               <div className="text-5xl mb-3">📄</div>
               <p className="text-sm">No in-app preview for this file type.</p>
               <p className="text-xs mt-1">Use ⬇ Save to copy it to your machine.</p>
@@ -332,7 +332,7 @@ function VideoPlayer({ src, onClose }: { src: string; onClose: () => void }) {
         {/* Scrubber */}
         <div className="relative h-1.5 mb-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.15)' }}>
           <div className="absolute inset-y-0 left-0" style={{ width: `${bufPct}%`, background: 'rgba(255,255,255,0.25)' }} />
-          <div className="absolute inset-y-0 left-0" style={{ width: `${pct}%`, background: '#6366f1' }} />
+          <div className="absolute inset-y-0 left-0" style={{ width: `${pct}%`, background: 'var(--dm-color-accent-primary)' }} />
           <input
             type="range"
             min={0}
@@ -351,8 +351,8 @@ function VideoPlayer({ src, onClose }: { src: string; onClose: () => void }) {
           <Btn onClick={() => seek(-10)} title="Back 10s (J)">⏪</Btn>
           <Btn onClick={() => seek(10)} title="Forward 10s (L)">⏩</Btn>
 
-          <span className="text-xs tabular-nums" style={{ color: '#cbd5e1' }}>
-            {formatTime(current)} <span style={{ color: '#64748b' }}>/ {formatTime(duration)}</span>
+          <span className="text-xs tabular-nums" style={{ color: 'var(--dm-color-fg-secondary)' }}>
+            {formatTime(current)} <span style={{ color: 'var(--dm-color-fg-tertiary)' }}>/ {formatTime(duration)}</span>
           </span>
 
           <div className="flex items-center gap-2 ml-3">
@@ -367,7 +367,7 @@ function VideoPlayer({ src, onClose }: { src: string; onClose: () => void }) {
               value={muted ? 0 : volume}
               onChange={(e) => setVolPct(parseFloat(e.target.value))}
               className="w-20 accent-indigo-500"
-              style={{ accentColor: '#6366f1' }}
+              style={{ accentColor: 'var(--dm-color-accent-primary)' }}
             />
           </div>
 
@@ -375,7 +375,7 @@ function VideoPlayer({ src, onClose }: { src: string; onClose: () => void }) {
             <button
               onClick={() => setShowRates((s) => !s)}
               className="px-2.5 py-1 rounded-md text-xs font-semibold tabular-nums"
-              style={{ background: 'rgba(255,255,255,0.08)', color: '#e2e8f0' }}
+              style={{ background: 'var(--dm-color-bg-hover)', color: 'var(--dm-color-fg-primary)' }}
               title="Playback speed"
             >
               {rate}x
@@ -383,7 +383,7 @@ function VideoPlayer({ src, onClose }: { src: string; onClose: () => void }) {
             {showRates && (
               <div
                 className="absolute bottom-9 right-12 rounded-lg py-1"
-                style={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', minWidth: 80 }}
+                style={{ background: 'var(--dm-color-bg-elevated)', border: '1px solid var(--dm-color-border-default)', minWidth: 80 }}
               >
                 {PLAYBACK_RATES.map((r) => (
                   <button
@@ -391,8 +391,8 @@ function VideoPlayer({ src, onClose }: { src: string; onClose: () => void }) {
                     onClick={() => setPlaybackRate(r)}
                     className="block w-full px-3 py-1.5 text-left text-xs"
                     style={{
-                      color: r === rate ? '#a5b4fc' : '#e2e8f0',
-                      background: r === rate ? 'rgba(99,102,241,0.15)' : 'transparent',
+                      color: r === rate ? 'var(--dm-color-accent-primary)' : 'var(--dm-color-fg-primary)',
+                      background: r === rate ? 'var(--dm-color-accent-subtle)' : 'transparent',
                       fontWeight: r === rate ? 700 : 400,
                     }}
                   >
@@ -416,9 +416,9 @@ function Btn({ children, onClick, title }: { children: React.ReactNode; onClick:
       onClick={onClick}
       title={title}
       className="w-9 h-9 flex items-center justify-center rounded-md transition-colors text-base"
-      style={{ background: 'rgba(255,255,255,0.06)', color: '#f1f5f9' }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.14)')}
-      onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+      style={{ background: 'var(--dm-color-bg-hover)', color: 'var(--dm-color-fg-primary)' }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--dm-color-border-default)')}
+      onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--dm-color-bg-hover)')}
     >
       {children}
     </button>
@@ -501,7 +501,7 @@ function AudioPlayer({ src, title }: { src: string; title: string }) {
   const pct = duration > 0 ? (current / duration) * 100 : 0;
 
   return (
-    <div className="p-8 flex flex-col items-center" style={{ background: 'linear-gradient(180deg,#1e1b4b 0%,#0b0b14 100%)' }}>
+    <div className="p-8 flex flex-col items-center" style={{ background: 'var(--dm-color-bg-app)' }}>
       <audio
         ref={audioRef}
         src={src}
@@ -517,8 +517,8 @@ function AudioPlayer({ src, title }: { src: string; title: string }) {
         <div
           className="w-44 h-44 rounded-full flex items-center justify-center text-7xl"
           style={{
-            background: 'radial-gradient(circle at 30% 30%, #818cf8, #4f46e5 60%, #1e1b4b)',
-            boxShadow: '0 20px 60px rgba(99,102,241,0.35)',
+            background: 'radial-gradient(circle at 30% 30%, var(--dm-color-accent-primary-hover), var(--dm-color-accent-primary) 60%, var(--dm-color-bg-app))',
+            boxShadow: '0 20px 60px var(--dm-color-accent-subtle)',
             animation: playing ? 'dmgrSpin 6s linear infinite' : undefined,
           }}
         >
@@ -527,17 +527,17 @@ function AudioPlayer({ src, title }: { src: string; title: string }) {
         <style>{`@keyframes dmgrSpin { to { transform: rotate(360deg); } }`}</style>
       </div>
 
-      <p className="text-sm font-semibold text-white mb-1 text-center max-w-md truncate" title={title}>
+      <p className="text-sm font-semibold mb-1 text-center max-w-md truncate" style={{ color: 'var(--dm-color-fg-primary)' }} title={title}>
         {title}
       </p>
-      <p className="text-xs mb-6" style={{ color: '#64748b' }}>
+      <p className="text-xs mb-6" style={{ color: 'var(--dm-color-fg-secondary)' }}>
         {formatTime(current)} / {formatTime(duration)}
       </p>
 
       {/* Scrubber */}
       <div className="w-full max-w-xl mb-5">
         <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
-          <div className="absolute inset-y-0 left-0" style={{ width: `${pct}%`, background: 'linear-gradient(to right,#6366f1,#a855f7)' }} />
+          <div className="absolute inset-y-0 left-0" style={{ width: `${pct}%`, background: 'linear-gradient(to right, var(--dm-color-accent-primary), var(--dm-color-accent-primary-hover))' }} />
           <input
             type="range"
             min={0}
@@ -556,7 +556,7 @@ function AudioPlayer({ src, title }: { src: string; title: string }) {
         <button
           onClick={togglePlay}
           className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
-          style={{ background: '#6366f1', color: 'white', boxShadow: '0 8px 20px rgba(99,102,241,0.45)' }}
+          style={{ background: 'var(--dm-color-accent-primary)', color: 'white', boxShadow: '0 8px 20px var(--dm-color-accent-subtle)' }}
         >
           {playing ? '⏸' : '▶'}
         </button>
@@ -574,21 +574,21 @@ function AudioPlayer({ src, title }: { src: string; title: string }) {
             value={muted ? 0 : volume}
             onChange={(e) => setVolPct(parseFloat(e.target.value))}
             className="flex-1"
-            style={{ accentColor: '#6366f1' }}
+            style={{ accentColor: 'var(--dm-color-accent-primary)' }}
           />
         </div>
         <div className="relative">
           <button
             onClick={() => setShowRates((s) => !s)}
             className="px-3 py-1.5 rounded-md text-xs font-semibold tabular-nums"
-            style={{ background: 'rgba(255,255,255,0.08)', color: '#e2e8f0' }}
+            style={{ background: 'var(--dm-color-bg-hover)', color: 'var(--dm-color-fg-primary)' }}
           >
             {rate}x
           </button>
           {showRates && (
             <div
               className="absolute bottom-10 right-0 rounded-lg py-1"
-              style={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', minWidth: 80 }}
+              style={{ background: 'var(--dm-color-bg-elevated)', border: '1px solid var(--dm-color-border-default)', minWidth: 80 }}
             >
               {PLAYBACK_RATES.map((r) => (
                 <button
@@ -596,8 +596,8 @@ function AudioPlayer({ src, title }: { src: string; title: string }) {
                   onClick={() => setPlaybackRate(r)}
                   className="block w-full px-3 py-1.5 text-left text-xs"
                   style={{
-                    color: r === rate ? '#a5b4fc' : '#e2e8f0',
-                    background: r === rate ? 'rgba(99,102,241,0.15)' : 'transparent',
+                    color: r === rate ? 'var(--dm-color-accent-primary)' : 'var(--dm-color-fg-primary)',
+                    background: r === rate ? 'var(--dm-color-accent-subtle)' : 'transparent',
                     fontWeight: r === rate ? 700 : 400,
                   }}
                 >

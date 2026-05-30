@@ -51,3 +51,8 @@ build/pyinstaller/dist/
 # Tauri shell artifacts.
 apps/shell/target/
 apps/shell/src-tauri-binaries/
+
+# PyInstaller intermediate build dir (created by uv run pyinstaller --workpath)
+apps/api/build/
+apps/api/port_output.txt
+

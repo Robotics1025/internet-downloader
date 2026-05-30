@@ -9,7 +9,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from dm_api.application.ports.progress_snapshot import ProgressSnapshotDTO
 
-router = APIRouter(prefix="/ws", tags=["websocket"])
+router = APIRouter(prefix="/api/ws", tags=["websocket"])
 logger = logging.getLogger(__name__)
 
 

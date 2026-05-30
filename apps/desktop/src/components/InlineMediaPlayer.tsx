@@ -1,18 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
-import type { Download, ProgressSnapshot } from '../types';
+import type { Download } from '../types';
 import { streamUrl } from '../api';
-import { DownloadRow } from './DownloadRow';
 
 interface InlineMediaPlayerProps {
   download: Download;
   playlist: Download[];
-  progress: Record<string, ProgressSnapshot>;
   onClose: () => void;
   onSelect: (id: string) => void;
-  onStart: (id: string) => void;
-  onDelete: (id: string) => void;
-  onReveal: (id: string) => void;
-  actioning: Record<string, boolean>;
 }
 
 function formatTime(s: number): string {
@@ -27,7 +21,7 @@ function formatTime(s: number): string {
 }
 
 export function InlineMediaPlayer({
-  download, playlist, progress, onClose, onSelect, onStart, onDelete, onReveal, actioning
+  download, playlist, onClose, onSelect
 }: InlineMediaPlayerProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -43,7 +37,6 @@ export function InlineMediaPlayer({
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const src = streamUrl(download.id);
-  const currentIndex = playlist.findIndex(d => d.id === download.id);
 
   /* ── helpers ── */
   const togglePlay = useCallback(() => {
@@ -117,20 +110,28 @@ export function InlineMediaPlayer({
     hideTimer.current = setTimeout(() => { if (playing) setShowControls(false); }, 3000);
   }
 
-  const nextIndex = (currentIndex + 1) % playlist.length;
-  const nextVideo = playlist[nextIndex];
+  // Only completed items can be navigated to.
+  const completedPlaylist = playlist.filter(d => d.status === 'completed');
+  const completedIndex = completedPlaylist.findIndex(d => d.id === download.id);
+  const hasMultiple = completedPlaylist.length > 1;
+  const prevVideo = hasMultiple && completedIndex > 0
+    ? completedPlaylist[completedIndex - 1]
+    : null;
+  const nextVideo = hasMultiple && completedIndex >= 0 && completedIndex < completedPlaylist.length - 1
+    ? completedPlaylist[completedIndex + 1]
+    : null;
 
   const pct = duration > 0 ? (current / duration) * 100 : 0;
   const bufPct = duration > 0 ? (buffered / duration) * 100 : 0;
   const timeLeft = duration > 0 ? duration - current : 0;
-  const showCountdown = duration > 0 && timeLeft <= 5 && timeLeft > 0;
+  const showCountdown = nextVideo != null && duration > 0 && timeLeft <= 5 && timeLeft > 0;
 
   function handleVideoEnd() {
-    onSelect(nextVideo.id);
+    if (nextVideo) onSelect(nextVideo.id);
   }
 
   return (
-    <div className="flex-1 flex flex-row min-h-0 bg-[#0a0e1a] overflow-hidden">
+    <div className="flex-1 flex flex-row min-h-0 overflow-hidden" style={{ background: 'var(--dm-color-bg-app)' }}>
 
       {/* ═══════════════════════════════════════════════
           VIDEO PLAYER  —  takes ~60 % of the column
@@ -175,13 +176,13 @@ export function InlineMediaPlayer({
               ←
             </button>
             <div>
-              <h2 className="text-[13px] font-semibold text-white leading-tight drop-shadow">{download.file_name}</h2>
+              <h2 className="text-[13px] font-semibold text-white leading-tight drop-shadow">{download.file_name || 'Unknown'}</h2>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="px-1 py-[1px] rounded text-[8px] font-bold text-red-400 bg-red-500/20 border border-red-500/30">
-                  {download.file_name.toLowerCase().includes('4k') ? '4K' : '1080p'}
+                  {(download.file_name || '').toLowerCase().includes('4k') ? '4K' : '1080p'}
                 </span>
                 <span className="px-1 py-[1px] rounded text-[8px] font-bold text-indigo-300 bg-indigo-500/20 border border-indigo-500/30">
-                  {download.file_name.toLowerCase().includes('hdr') ? 'HDR' : 'SDR'}
+                  {(download.file_name || '').toLowerCase().includes('hdr') ? 'HDR' : 'SDR'}
                 </span>
               </div>
             </div>
@@ -204,7 +205,7 @@ export function InlineMediaPlayer({
         )}
 
         {/* ── up next countdown overlay ── */}
-        {showCountdown && (
+        {showCountdown && nextVideo && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20" style={{ background: 'rgba(0,0,0,0.4)' }}>
             <div className="flex flex-col items-center bg-black/80 px-8 py-6 rounded-2xl backdrop-blur-md">
               <span className="text-white/70 text-sm mb-2 font-medium">Up Next in</span>
@@ -227,10 +228,10 @@ export function InlineMediaPlayer({
           <div className="h-[8px] mb-2 flex items-end cursor-pointer group/scrub">
             <div className="relative w-full h-[3px] group-hover/scrub:h-[6px] transition-[height] duration-100" style={{ background: 'rgba(255,255,255,0.2)' }}>
               <div className="absolute inset-y-0 left-0" style={{ width: `${bufPct}%`, background: 'rgba(255,255,255,0.25)' }} />
-              <div className="absolute inset-y-0 left-0" style={{ width: `${pct}%`, background: '#ff0000' }} />
+              <div className="absolute inset-y-0 left-0" style={{ width: `${pct}%`, background: 'var(--dm-color-status-danger-text)' }} />
               <div
-                className="absolute top-1/2 -translate-y-1/2 w-[14px] h-[14px] bg-[#ff0000] rounded-full shadow-lg transition-transform scale-0 group-hover/scrub:scale-100 pointer-events-none"
-                style={{ left: `calc(${pct}% - 7px)` }}
+                className="absolute top-1/2 -translate-y-1/2 w-[14px] h-[14px] rounded-full shadow-lg transition-transform scale-0 group-hover/scrub:scale-100 pointer-events-none"
+                style={{ background: 'var(--dm-color-status-danger-text)', left: `calc(${pct}% - 7px)` }}
               />
               <input type="range" min={0} max={duration || 0} step={0.1} value={current} onChange={onScrub} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
             </div>
@@ -240,19 +241,33 @@ export function InlineMediaPlayer({
           <div className="flex items-center justify-between text-white px-4">
             {/* Left controls */}
             <div className="flex items-center gap-3">
-              <button onClick={() => onSelect(playlist[(currentIndex - 1 + playlist.length) % playlist.length].id)} className="text-white/70 hover:text-white transition-colors text-lg">⏮</button>
+              <button
+                onClick={() => prevVideo && onSelect(prevVideo.id)}
+                disabled={!prevVideo}
+                className="text-white/70 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors text-lg"
+                title="Previous"
+              >
+                ⏮
+              </button>
               <button
                 onClick={togglePlay}
                 className="w-9 h-9 rounded-full flex items-center justify-center text-white text-lg shadow-lg transition-all hover:scale-105"
-                style={{ background: 'linear-gradient(135deg,#6366f1,#a855f7)' }}
+                style={{ background: 'linear-gradient(135deg, var(--dm-color-accent-primary), var(--dm-color-accent-primary-hover))' }}
               >
                 {playing ? '⏸' : '▶'}
               </button>
-              <button onClick={() => onSelect(nextVideo.id)} className="text-white/70 hover:text-white transition-colors text-lg">⏭</button>
+              <button
+                onClick={() => nextVideo && onSelect(nextVideo.id)}
+                disabled={!nextVideo}
+                className="text-white/70 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors text-lg"
+                title="Next"
+              >
+                ⏭
+              </button>
 
               <div className="flex items-center gap-1.5 ml-1">
                 <button onClick={toggleMute} className="text-white/70 hover:text-white transition-colors">{muted || volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊'}</button>
-                <input type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume} onChange={e => setVolPct(parseFloat(e.target.value))} className="w-16 h-1 cursor-pointer" style={{ accentColor: '#a855f7' }} />
+                <input type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume} onChange={e => setVolPct(parseFloat(e.target.value))} className="w-16 h-1 cursor-pointer" style={{ accentColor: 'var(--dm-color-accent-primary)' }} />
               </div>
 
               <span className="text-[12px] font-mono text-white/60 ml-2">{formatTime(current)} / {formatTime(duration)}</span>
@@ -267,9 +282,9 @@ export function InlineMediaPlayer({
                   {rate.toFixed(1)}x
                 </button>
                 {showRates && (
-                  <div className="absolute bottom-full right-0 mb-2 py-1 rounded-lg z-50" style={{ background: '#1a1f35', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 32px rgba(0,0,0,0.7)', minWidth: '76px' }}>
+                  <div className="absolute bottom-full right-0 mb-2 py-1 rounded-lg z-50" style={{ background: 'var(--dm-color-bg-elevated)', border: '1px solid var(--dm-color-border-default)', boxShadow: '0 8px 32px rgba(0,0,0,0.7)', minWidth: '76px' }}>
                     {[0.5, 1.0, 1.25, 1.5, 2.0].map(r => (
-                      <button key={r} onClick={() => handleRateChange(r)} className="w-full px-3 py-1.5 text-left text-[11px] hover:bg-purple-500/20 transition-colors" style={{ color: r === rate ? '#a855f7' : '#94a3b8' }}>
+                      <button key={r} onClick={() => handleRateChange(r)} className="w-full px-3 py-1.5 text-left text-[11px] hover:bg-purple-500/20 transition-colors" style={{ color: r === rate ? 'var(--dm-color-accent-primary)' : 'var(--dm-color-fg-secondary)' }}>
                         {r.toFixed(2)}x
                       </button>
                     ))}
@@ -286,38 +301,71 @@ export function InlineMediaPlayer({
       </div>
 
       {/* ═══════════════════════════════════════════════
-          PLAYLIST  —  takes ~400px width on the right
+          PLAYLIST  —  compact sidebar
           ═══════════════════════════════════════════════ */}
-      <div className="flex flex-col min-h-0 w-[400px] shrink-0" style={{ background: '#0f1423', borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
-        {/* playlist header */}
-        <div className="flex items-center justify-between px-5 py-2 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-          <h3 className="text-[12px] font-semibold" style={{ color: '#94a3b8' }}>
-            Downloaded Videos ({playlist.length})
+      <div className="flex flex-col min-h-0 w-[360px] shrink-0" style={{ background: 'var(--dm-color-bg-elevated)', borderLeft: '1px solid var(--dm-color-border-subtle)' }}>
+        {/* header */}
+        <div className="flex items-center justify-between px-4 py-2.5 shrink-0" style={{ borderBottom: '1px solid var(--dm-color-border-subtle)' }}>
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--dm-color-fg-tertiary)' }}>
+            Up Next · {completedPlaylist.length} / {playlist.length} ready
           </h3>
-          <div className="flex items-center gap-1">
-            <button className="w-6 h-6 rounded flex items-center justify-center text-[#505a6e] hover:text-white hover:bg-white/5 transition-colors">🔍</button>
-            <button className="w-6 h-6 rounded flex items-center justify-center text-[#505a6e] hover:text-white hover:bg-white/5 transition-colors">≡</button>
-            <button className="w-6 h-6 rounded flex items-center justify-center text-[#505a6e] hover:text-white hover:bg-white/5 transition-colors">⊞</button>
-          </div>
+          <button
+            onClick={onClose}
+            className="w-6 h-6 rounded flex items-center justify-center text-xs transition-colors"
+            style={{ color: 'var(--dm-color-fg-tertiary)', background: 'var(--dm-color-bg-hover)' }}
+            title="Close player"
+          >✕</button>
         </div>
 
-        {/* scrollable list */}
-        <div className="flex-1 overflow-y-auto">
-          {playlist.map(d => (
-            <DownloadRow
-              key={d.id}
-              download={d}
-              progress={progress[d.id]}
-              onStart={onStart}
-              onDelete={onDelete}
-              onPlay={onSelect}
-              onReveal={onReveal}
-              onSelect={onSelect}
-              isSelected={d.id === download.id}
-              actionLoading={actioning[d.id] || false}
-              variant="playlist"
-            />
-          ))}
+        {/* scrollable track list */}
+        <div className="flex-1 overflow-y-auto py-1">
+          {playlist.map((d, idx) => {
+            const isPlaying = d.id === download.id;
+            const isDone = d.status === 'completed';
+            const urlStr = d.url || '';
+            const ytMatch = urlStr.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
+            const thumb = ytMatch ? `https://img.youtube.com/vi/${ytMatch[1]}/default.jpg` : null;
+            return (
+              <div
+                key={d.id}
+                onClick={() => isDone ? onSelect(d.id) : undefined}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '7px 12px',
+                  cursor: isDone ? 'pointer' : 'default',
+                  opacity: isDone ? 1 : 0.4,
+                  background: isPlaying ? 'var(--dm-color-accent-subtle)' : 'transparent',
+                  borderLeft: isPlaying ? '3px solid var(--dm-color-accent-primary)' : '3px solid transparent',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => { if (isDone && !isPlaying) (e.currentTarget as HTMLDivElement).style.background = 'var(--dm-color-bg-hover)'; }}
+                onMouseLeave={e => { if (!isPlaying) (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+              >
+                {/* index / playing indicator */}
+                <div style={{ width: '20px', textAlign: 'center', flexShrink: 0, fontSize: '11px', color: 'var(--dm-color-fg-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
+                  {isPlaying ? <span style={{ color: 'var(--dm-color-accent-primary)' }}>▶</span> : idx + 1}
+                </div>
+                {/* thumbnail */}
+                <div style={{ width: '56px', height: '38px', borderRadius: '4px', overflow: 'hidden', flexShrink: 0, background: 'var(--dm-color-bg-recessed)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {thumb
+                    ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span style={{ fontSize: '16px', opacity: 0.5 }}>🎬</span>
+                  }
+                </div>
+                {/* title + status */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: '12px', fontWeight: isPlaying ? 600 : 400, color: isPlaying ? 'var(--dm-color-accent-primary)' : 'var(--dm-color-fg-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {(d.file_name || '').replace(/\.[^.]+$/, '')}
+                  </p>
+                  <p style={{ margin: 0, fontSize: '10px', color: 'var(--dm-color-fg-tertiary)', marginTop: '2px' }}>
+                    {isDone ? 'Ready' : d.status === 'downloading' ? 'Downloading…' : d.status === 'pending' ? 'Pending' : d.status}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -15,3 +15,4 @@ Open-source, local-only desktop download manager. Electron + React frontend, Pyt
 ## License
 
 Open source. No telemetry, no cloud sync, no remote management — runs entirely on the user's machine.
+# internet_dowanloader

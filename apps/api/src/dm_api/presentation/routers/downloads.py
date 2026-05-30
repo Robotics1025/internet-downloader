@@ -200,6 +200,37 @@ async def reveal_in_folder(request: Request, id: UUID) -> Response:
     return Response(status_code=204)
 
 
+@router.post("/{id}/open", status_code=204)
+async def open_download_file(request: Request, id: UUID) -> Response:
+    repo = request.app.state.repo
+    task = await repo.get_by_id(id)
+    if task is None:
+        raise HTTPException(status_code=404, detail=f"download {id} not found")
+    target = Path(task.save_path) / task.file_name
+    if not target.exists():
+        raise HTTPException(status_code=404, detail=f"file not on disk: {target}")
+    
+    if sys.platform == "darwin":
+        cmd = ["open", str(target)]
+    elif sys.platform == "win32":
+        cmd = ["start", "", str(target)]
+    else:
+        opener = shutil.which("xdg-open")
+        if opener is None:
+            raise RuntimeError("xdg-open not found — install xdg-utils")
+        cmd = [opener, str(target)]
+        
+    try:
+        if sys.platform == "win32":
+            subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return Response(status_code=204)
+
+
+
 @router.delete("/{id}", status_code=204)
 async def delete_download(request: Request, id: UUID) -> Response:
     repo = request.app.state.repo

@@ -26,12 +26,12 @@ export function PlaylistDetailPanel({
     return (
       <aside
         className="w-[340px] h-full flex flex-col shrink-0 border-l"
-        style={{ background: '#0a0e1a', borderColor: 'rgba(255,255,255,0.06)' }}
+        style={{ background: 'var(--dm-color-bg-app)', borderColor: 'var(--dm-color-border-subtle)' }}
       >
-        <div className="p-6 text-center" style={{ color: '#505a6e' }}>
+        <div className="p-6 text-center" style={{ color: 'var(--dm-color-fg-tertiary)' }}>
           <div
             className="w-12 h-12 mx-auto rounded-2xl flex items-center justify-center text-xl mb-3"
-            style={{ background: 'rgba(255,255,255,0.03)' }}
+            style={{ background: 'var(--dm-color-bg-hover)' }}
           >
             ▦
           </div>
@@ -61,14 +61,14 @@ export function PlaylistDetailPanel({
   return (
     <aside
       className="w-[340px] h-full flex flex-col shrink-0 border-l overflow-y-auto"
-      style={{ background: '#0a0e1a', borderColor: 'rgba(255,255,255,0.06)' }}
+      style={{ background: 'var(--dm-color-bg-app)', borderColor: 'var(--dm-color-border-subtle)' }}
     >
       <div className="flex items-center justify-between p-5 pb-3">
-        <h2 className="text-lg font-semibold text-white truncate pr-4">{group.name}</h2>
+        <h2 className="text-lg font-semibold truncate pr-4" style={{ color: 'var(--dm-color-fg-primary)' }}>{group.name}</h2>
         <button
           onClick={onClose}
           className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
-          style={{ color: '#8892a8', background: 'rgba(255,255,255,0.03)' }}
+          style={{ color: 'var(--dm-color-fg-tertiary)', background: 'var(--dm-color-bg-hover)' }}
         >
           ✕
         </button>
@@ -81,7 +81,7 @@ export function PlaylistDetailPanel({
           style={{
             background: group.thumb
               ? `center / cover no-repeat url(${group.thumb})`
-              : 'linear-gradient(135deg,#6366f1,#a855f7)',
+              : 'linear-gradient(135deg, var(--dm-color-accent-primary), var(--dm-color-accent-primary-hover))',
             boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
           }}
         >
@@ -94,45 +94,45 @@ export function PlaylistDetailPanel({
       </div>
 
       {/* Stats */}
-      <div className="px-5 flex flex-col gap-3 mb-5 text-sm" style={{ color: '#a0aec0' }}>
+      <div className="px-5 flex flex-col gap-3 mb-5 text-sm" style={{ color: 'var(--dm-color-fg-secondary)' }}>
         <Row icon="▶" label="Total Videos" value={String(group.items.length)} />
         <Row icon="⇣" label="Total Size" value={formatBytes(totalSize)} />
         <Row icon="✓" label="Completed" value={`${completedItems.length} / ${group.items.length}`} />
         {lastPlayedFmt && lastItem && (
           <div className="flex justify-between py-1">
-            <div className="flex items-center gap-2 shrink-0" style={{ color: '#a0aec0' }}>
+            <div className="flex items-center gap-2 shrink-0" style={{ color: 'var(--dm-color-fg-secondary)' }}>
               <span className="w-4 text-center">↻</span> Last Completed
             </div>
             <div className="text-right flex flex-col items-end min-w-0">
-              <span className="text-white font-medium truncate max-w-[160px]" title={lastItem.file_name}>
+              <span className="font-medium truncate max-w-[160px]" style={{ color: 'var(--dm-color-fg-primary)' }} title={lastItem.file_name}>
                 {lastItem.file_name}
               </span>
-              <span className="text-[11px]" style={{ color: '#8892a8' }}>{lastPlayedFmt.date}</span>
+              <span className="text-[11px]" style={{ color: 'var(--dm-color-fg-tertiary)' }}>{lastPlayedFmt.date}</span>
             </div>
           </div>
         )}
       </div>
 
-      <div className="w-full h-px mb-5" style={{ background: 'rgba(255,255,255,0.06)' }} />
+      <div className="w-full h-px mb-5" style={{ background: 'var(--dm-color-border-subtle)' }} />
 
       {/* Info */}
-      <div className="px-5 flex flex-col gap-2.5 mb-6 text-[12px]" style={{ color: '#8892a8' }}>
+      <div className="px-5 flex flex-col gap-2.5 mb-6 text-[12px]" style={{ color: 'var(--dm-color-fg-secondary)' }}>
         <div className="flex justify-between items-start gap-3">
           <div className="flex items-center gap-2 shrink-0"><span className="w-4 text-center">📁</span> Location</div>
-          <div className="truncate text-right" title={location} style={{ color: '#cbd5e1' }}>
+          <div className="truncate text-right" title={location} style={{ color: 'var(--dm-color-fg-primary)' }}>
             {location}
           </div>
         </div>
         {createdFmt && (
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2"><span className="w-4 text-center">📅</span> Created</div>
-            <div style={{ color: '#cbd5e1' }}>{createdFmt.date}</div>
+            <div style={{ color: 'var(--dm-color-fg-primary)' }}>{createdFmt.date}</div>
           </div>
         )}
         {lastPlayedFmt && (
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2"><span className="w-4 text-center">🕒</span> Updated</div>
-            <div style={{ color: '#cbd5e1' }}>{lastPlayedFmt.date} · {lastPlayedFmt.time}</div>
+            <div style={{ color: 'var(--dm-color-fg-primary)' }}>{lastPlayedFmt.date} · {lastPlayedFmt.time}</div>
           </div>
         )}
       </div>
@@ -145,7 +145,7 @@ export function PlaylistDetailPanel({
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium text-sm transition-all"
           style={{
             background: completedItems.length
-              ? 'linear-gradient(90deg, #3b82f6, #8b5cf6)'
+              ? 'linear-gradient(90deg, var(--dm-color-accent-primary), var(--dm-color-accent-primary-hover))'
               : 'rgba(99,102,241,0.25)',
             color: 'white',
             cursor: completedItems.length ? 'pointer' : 'not-allowed',
@@ -160,9 +160,9 @@ export function PlaylistDetailPanel({
             disabled={completedItems.length === 0}
             className="flex-1 py-2.5 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2"
             style={{
-              background: 'rgba(255,255,255,0.05)',
-              color: completedItems.length ? '#e2e8f0' : '#505a6e',
-              border: '1px solid rgba(255,255,255,0.1)',
+              background: 'var(--dm-color-bg-hover)',
+              color: completedItems.length ? 'var(--dm-color-fg-primary)' : 'var(--dm-color-fg-tertiary)',
+              border: '1px solid var(--dm-color-border-subtle)',
               cursor: completedItems.length ? 'pointer' : 'not-allowed',
             }}
           >
@@ -172,9 +172,9 @@ export function PlaylistDetailPanel({
             onClick={onOpenFolder}
             className="flex-1 py-2.5 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2"
             style={{
-              background: 'rgba(255,255,255,0.05)',
-              color: '#e2e8f0',
-              border: '1px solid rgba(255,255,255,0.1)',
+              background: 'var(--dm-color-bg-hover)',
+              color: 'var(--dm-color-fg-primary)',
+              border: '1px solid var(--dm-color-border-subtle)',
             }}
           >
             📁 Open Folder
@@ -188,10 +188,10 @@ export function PlaylistDetailPanel({
 function Row({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
     <div className="flex justify-between items-center py-1">
-      <div className="flex items-center gap-2" style={{ color: '#a0aec0' }}>
+      <div className="flex items-center gap-2" style={{ color: 'var(--dm-color-fg-secondary)' }}>
         <span className="w-4 text-center">{icon}</span> {label}
       </div>
-      <div className="text-white font-medium">{value}</div>
+      <div className="font-medium" style={{ color: 'var(--dm-color-fg-primary)' }}>{value}</div>
     </div>
   );
 }

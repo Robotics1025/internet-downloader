@@ -22,12 +22,14 @@ function formatTime(s: number): string {
   return `${m}:${String(sec).padStart(2, '0')}`;
 }
 
-function ytThumb(url: string): string | null {
+function ytThumb(url?: string | null): string | null {
+  if (!url) return null;
   const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
   return m ? `https://img.youtube.com/vi/${m[1]}/mqdefault.jpg` : null;
 }
 
-function isVideoFile(name: string): boolean {
+function isVideoFile(name?: string | null): boolean {
+  if (!name) return false;
   const ext = (name.split('.').pop() || '').toLowerCase();
   return ['mp4', 'webm', 'mkv', 'mov', 'm4v', 'ogv', 'avi'].includes(ext);
 }
@@ -144,8 +146,8 @@ export function NowPlayingBar({
       id="now-playing-bar"
       className="h-[72px] px-4 flex items-center gap-4 shrink-0"
       style={{
-        background: '#080b14',
-        borderTop: '1px solid rgba(255,255,255,0.08)',
+        background: 'var(--dm-color-bg-app)',
+        borderTop: '1px solid var(--dm-color-border-subtle)',
       }}
     >
       {/* Hidden audio engine — only mounts for audio files; videos open in
@@ -166,14 +168,14 @@ export function NowPlayingBar({
       <button
         onClick={onExpand}
         className="flex items-center gap-3 min-w-[200px] max-w-[280px] text-left transition-opacity hover:opacity-90"
-        title={isVideo ? 'Open video player' : currentTrack.file_name}
+        title={isVideo ? 'Open video player' : currentTrack.file_name || 'Unknown'}
       >
         <div
           className="w-12 h-12 rounded-md shrink-0 relative overflow-hidden"
           style={{
             background: cover
               ? `center / cover no-repeat url(${cover})`
-              : 'linear-gradient(135deg,#6366f1,#a855f7)',
+              : 'linear-gradient(135deg, var(--dm-color-accent-primary), var(--dm-color-accent-primary-hover))',
           }}
         >
           {!cover && (
@@ -183,8 +185,8 @@ export function NowPlayingBar({
           )}
         </div>
         <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-white truncate">{currentTrack.file_name}</p>
-          <p className="text-[11px] truncate" style={{ color: '#8892a8' }}>{artist}</p>
+          <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--dm-color-fg-primary)' }}>{currentTrack.file_name || 'Unknown'}</p>
+          <p className="text-[11px] truncate" style={{ color: 'var(--dm-color-fg-secondary)' }}>{artist}</p>
         </div>
       </button>
 
@@ -207,7 +209,7 @@ export function NowPlayingBar({
             onClick={isVideo ? onExpand : togglePlay}
             title={isVideo ? 'Open player' : (playing ? 'Pause' : 'Play')}
             className="w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105"
-            style={{ background: '#6366f1', color: 'white', boxShadow: '0 0 12px rgba(99,102,241,0.45)' }}
+            style={{ background: 'var(--dm-color-accent-primary)', color: 'white', boxShadow: '0 0 12px var(--dm-color-accent-subtle)' }}
           >
             {isVideo ? (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
@@ -234,9 +236,9 @@ export function NowPlayingBar({
 
         {/* Progress */}
         <div className="flex items-center gap-2 w-full px-2">
-          <span className="text-[10px] tabular-nums w-9 text-right" style={{ color: '#8892a8' }}>{formatTime(current)}</span>
-          <div className="relative flex-1 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }}>
-            <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: '#6366f1' }} />
+          <span className="text-[10px] tabular-nums w-9 text-right" style={{ color: 'var(--dm-color-fg-secondary)' }}>{formatTime(current)}</span>
+          <div className="relative flex-1 h-1 rounded-full" style={{ background: 'var(--dm-color-border-subtle)' }}>
+            <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: 'var(--dm-color-accent-primary)' }} />
             <input
               type="range"
               min={0}
@@ -248,7 +250,7 @@ export function NowPlayingBar({
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
             />
           </div>
-          <span className="text-[10px] tabular-nums w-9" style={{ color: '#8892a8' }}>{formatTime(duration)}</span>
+          <span className="text-[10px] tabular-nums w-9" style={{ color: 'var(--dm-color-fg-secondary)' }}>{formatTime(duration)}</span>
         </div>
       </div>
 
@@ -259,7 +261,7 @@ export function NowPlayingBar({
             <button
               onClick={() => setVol(muted ? volume || 0.8 : 0)}
               className="w-7 h-7 flex items-center justify-center"
-              style={{ color: '#8892a8' }}
+              style={{ color: 'var(--dm-color-fg-secondary)' }}
               title={muted ? 'Unmute' : 'Mute'}
             >
               {muted || volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊'}
@@ -272,7 +274,7 @@ export function NowPlayingBar({
               value={muted ? 0 : volume}
               onChange={e => setVol(parseFloat(e.target.value))}
               className="w-24 cursor-pointer"
-              style={{ accentColor: '#6366f1' }}
+              style={{ accentColor: 'var(--dm-color-accent-primary)' }}
             />
           </>
         )}
@@ -280,7 +282,7 @@ export function NowPlayingBar({
           onClick={onClose}
           title="Close now playing"
           className="w-7 h-7 flex items-center justify-center rounded-md ml-1"
-          style={{ color: '#8892a8', background: 'rgba(255,255,255,0.04)' }}
+          style={{ color: 'var(--dm-color-fg-secondary)', background: 'var(--dm-color-bg-hover)' }}
         >
           ✕
         </button>
@@ -305,13 +307,13 @@ function CtrlBtn({
       disabled={disabled}
       title={title}
       className="w-7 h-7 flex items-center justify-center rounded transition-all relative disabled:opacity-30"
-      style={{ color: on ? '#6366f1' : '#e2e8f0' }}
+      style={{ color: on ? 'var(--dm-color-accent-primary)' : 'var(--dm-color-fg-primary)' }}
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">{svg}</svg>
       {badge && (
         <span
           className="absolute -top-0.5 -right-0.5 text-[8px] font-bold leading-none px-1 rounded-full"
-          style={{ background: '#6366f1', color: 'white' }}
+          style={{ background: 'var(--dm-color-accent-primary)', color: 'white' }}
         >
           {badge}
         </span>
@@ -337,23 +339,23 @@ function DownloadStatsStrip({
   return (
     <footer
       className="h-9 px-5 flex items-center gap-5 shrink-0 text-[11px]"
-      style={{ background: '#080b14', borderTop: '1px solid rgba(255,255,255,0.06)' }}
+      style={{ background: 'var(--dm-color-bg-app)', borderTop: '1px solid var(--dm-color-border-subtle)' }}
     >
       <div className="flex items-center gap-2">
-        <span style={{ color: '#505a6e' }}>Speed</span>
-        <span className="font-semibold tabular-nums text-white">{formatSpeed(totalSpeed)}</span>
+        <span style={{ color: 'var(--dm-color-fg-tertiary)' }}>Speed</span>
+        <span className="font-semibold tabular-nums" style={{ color: 'var(--dm-color-fg-primary)' }}>{formatSpeed(totalSpeed)}</span>
       </div>
-      <div className="w-px h-4" style={{ background: 'rgba(255,255,255,0.06)' }} />
+      <div className="w-px h-4" style={{ background: 'var(--dm-color-border-subtle)' }} />
       <div className="flex items-center gap-3 flex-1">
-        <span style={{ color: '#505a6e' }}>Overall</span>
-        <div className="flex-1 max-w-[300px] h-[5px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-          <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: 'linear-gradient(90deg,#3b82f6,#22c55e)' }} />
+        <span style={{ color: 'var(--dm-color-fg-tertiary)' }}>Overall</span>
+        <div className="flex-1 max-w-[300px] h-[5px] rounded-full overflow-hidden" style={{ background: 'var(--dm-color-border-subtle)' }}>
+          <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: 'linear-gradient(90deg, var(--dm-color-status-info-text), var(--dm-color-status-success-text))' }} />
         </div>
-        <span className="font-semibold tabular-nums text-white">{Math.round(pct)}%</span>
+        <span className="font-semibold tabular-nums" style={{ color: 'var(--dm-color-fg-primary)' }}>{Math.round(pct)}%</span>
       </div>
       <div className="flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full" style={{ background: active.length > 0 ? '#22c55e' : '#505a6e' }} />
-        <span className="font-medium text-white">{active.length} active</span>
+        <span className="w-2 h-2 rounded-full" style={{ background: active.length > 0 ? 'var(--dm-color-status-success-text)' : 'var(--dm-color-fg-tertiary)' }} />
+        <span className="font-medium" style={{ color: 'var(--dm-color-fg-primary)' }}>{active.length} active</span>
       </div>
     </footer>
   );

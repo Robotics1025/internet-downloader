@@ -34,34 +34,40 @@ export function EmptyState({ icon: Icon, title, body, cta }: EmptyStateProps) {
           textAlign: 'center',
         }}
       >
-        {/* Icon with radial glow */}
-        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+        {/* Icon with glassmorphic tile and glow */}
+        <div className="animate-fade-slide" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', animationDuration: '0.5s' }}>
           {/* Glow circle */}
           <div
+            className="animate-pulse-glow"
             style={{
               position: 'absolute',
-              width: '96px',
-              height: '96px',
+              width: '120px',
+              height: '120px',
               borderRadius: '50%',
-              background: 'var(--dm-color-accent-subtle)',
-              opacity: 0.3,
-              filter: 'blur(24px)',
+              background: 'linear-gradient(135deg, var(--dm-color-accent-primary), rgba(168, 85, 247, 0.6))',
+              opacity: 0.15,
+              filter: 'blur(28px)',
               pointerEvents: 'none',
             }}
           />
-          {/* Icon */}
+          {/* Glass tile */}
           <div
             style={{
               position: 'relative',
-              width: '48px',
-              height: '48px',
+              width: '64px',
+              height: '64px',
+              borderRadius: '20px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'var(--dm-color-fg-tertiary)',
+              color: 'var(--dm-color-accent-primary)',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+              backdropFilter: 'blur(10px)',
             }}
           >
-            <Icon size={48} />
+            <Icon size={32} />
           </div>
         </div>
 
@@ -102,22 +108,25 @@ export function EmptyState({ icon: Icon, title, body, cta }: EmptyStateProps) {
             onClick={cta.onClick}
             style={{
               marginTop: '24px',
-              padding: '8px 16px',
-              borderRadius: 'var(--dm-radius-md)',
-              background: 'var(--dm-color-accent-primary)',
-              color: '#ffffff',
+              padding: '10px 24px',
+              borderRadius: 'var(--dm-radius-lg)',
+              background: 'linear-gradient(135deg, var(--dm-color-accent-primary), var(--dm-color-accent-primary-hover))',
+              color: '#fff',
               fontSize: 'var(--dm-text-sm)',
-              fontWeight: 'var(--dm-weight-medium)',
-              border: 'none',
+              fontWeight: 'var(--dm-weight-semibold)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              boxShadow: '0 4px 16px var(--dm-color-accent-subtle)',
               cursor: 'pointer',
-              transition: `background var(--dm-duration-fast) var(--dm-easing-standard)`,
+              transition: `all var(--dm-duration-normal) var(--dm-easing-standard)`,
               fontFamily: 'var(--dm-font-family)',
             }}
             onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'var(--dm-color-accent-primary-hover)';
+              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 6px 20px var(--dm-color-accent-subtle)';
             }}
             onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'var(--dm-color-accent-primary)';
+              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 16px var(--dm-color-accent-subtle)';
             }}
           >
             {cta.label}

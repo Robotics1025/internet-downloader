@@ -24,21 +24,37 @@ export function useDownloads() {
   useEffect(() => {
     fetchDownloads();
 
-    // Connect WebSocket for live progress
-    const ws = connectProgressWS((snap) => {
-      setProgress((prev) => ({ ...prev, [snap.download_id]: snap }));
-      // When a download completes/fails, refresh the list to get updated DB state
-      if (snap.status === 'completed' || snap.status === 'failed') {
-        fetchDownloads();
-      }
-    });
-    wsRef.current = ws;
+    let ws: WebSocket;
+    let reconnectTimeout: ReturnType<typeof setTimeout>;
+    let isCleanedUp = false;
+
+    const connect = () => {
+      if (isCleanedUp) return;
+      ws = connectProgressWS((snap) => {
+        setProgress((prev) => ({ ...prev, [snap.download_id]: snap }));
+        if (snap.status === 'completed' || snap.status === 'failed') {
+          fetchDownloads();
+        }
+      });
+      
+      ws.onclose = () => {
+        if (!isCleanedUp) {
+          reconnectTimeout = setTimeout(connect, 3000);
+        }
+      };
+
+      wsRef.current = ws;
+    };
+
+    connect();
 
     // Poll every 3s as fallback
     const poll = setInterval(fetchDownloads, 3000);
 
     return () => {
-      ws.close();
+      isCleanedUp = true;
+      clearTimeout(reconnectTimeout);
+      if (ws) ws.close();
       clearInterval(poll);
     };
   }, [fetchDownloads]);

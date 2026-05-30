@@ -11,6 +11,7 @@ import { DetailPanel } from './components/DetailPanel';
 import { NowPlayingBar } from './components/NowPlayingBar';
 import { AddDownloadDialog } from './components/AddDownloadDialog';
 import { InlineMediaPlayer } from './components/InlineMediaPlayer';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { PlaylistView, buildGroups } from './components/PlaylistView';
 import { PlaylistDetailPanel } from './components/PlaylistDetailPanel';
 import { EmptyState } from './components/EmptyState';
@@ -28,6 +29,7 @@ function App() {
   const [theme, setTheme] = useTheme();
   const { downloads, progress, loading, error, startDownload, addDownload, deleteDownload, refresh } = useDownloads();
   const [view, setView] = useState<'downloads' | 'settings'>('downloads');
+  const [layout, setLayout] = useState<'list' | 'grid'>('list');
   const [sidebarFilter, setSidebarFilter] = useState('cat:video');
   const [tabFilter, setTabFilter] = useState('playlists');
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,13 +55,28 @@ function App() {
     const wanted = activeGroupId ? allGroups.find(g => g.id === activeGroupId) : null;
     return wanted ?? allGroups[0];
   }, [allGroups, activeGroupId]);
-
-  function handlePlay(id: string) {
-    setCurrentTrackId(id);
+  async function handlePlay(id: string) {
     const d = downloads.find(x => x.id === id);
-    const isVideo = d ? /\.(mp4|webm|mkv|mov|m4v|avi|ogv)$/i.test(d.file_name) : false;
-    // Video opens the inline player; audio plays inside the now-playing bar.
-    if (isVideo) setPlayingId(id);
+    if (!d) return;
+
+    const fileName = d.file_name || '';
+    const ext = fileName.split('.').pop()?.toUpperCase() || '';
+    const isVideo = /\.(mp4|webm|mkv|mov|m4v|avi|ogv)$/i.test(fileName);
+    const isAudio = d.category === 'audio' || ['MP3', 'AAC', 'FLAC', 'WAV', 'OGG', 'M4A'].includes(ext);
+
+    if (isVideo) {
+      setCurrentTrackId(id);
+      setPlayingId(id);
+    } else if (isAudio) {
+      setCurrentTrackId(id);
+    } else {
+      // It's a document/image or other non-media completed file — launch it natively!
+      try {
+        await api.openDownload(id);
+      } catch (e) {
+        alert(e instanceof Error ? e.message : 'Failed to open file');
+      }
+    }
   }
 
   // Counts for sidebar
@@ -137,6 +154,16 @@ function App() {
 
     return result;
   }, [downloads, progress, sidebarFilter, tabFilter, searchQuery]);
+
+  // All videos in the active group/view — shown in the player sidebar.
+  // Navigating skips non-completed items; ALL videos are still listed.
+  const playingPlaylist = useMemo(() => {
+    const isPlaylistsTab = tabFilter === 'playlists' || tabFilter === 'artists';
+    const sourceList = isPlaylistsTab && activeGroup ? activeGroup.items : filtered;
+    return sourceList.filter(d =>
+      /\.(mp4|webm|mkv|mov|m4v|avi|ogv)$/i.test(d.file_name || '') || d.category === 'video'
+    );
+  }, [tabFilter, activeGroup, filtered]);
 
   async function handleStart(id: string) {
     setActioning(prev => ({ ...prev, [id]: true }));
@@ -251,17 +278,14 @@ function App() {
           {view === 'settings' ? (
             <SettingsScreen onClose={() => setView('downloads')} />
           ) : playing ? (
-            <InlineMediaPlayer
-              download={playing}
-              playlist={filtered}
-              progress={progress}
-              onClose={() => setPlayingId(null)}
-              onSelect={setPlayingId}
-              onStart={handleStart}
-              onDelete={handleDelete}
-              onReveal={handleReveal}
-              actioning={actioning}
-            />
+            <ErrorBoundary onReset={() => setPlayingId(null)}>
+              <InlineMediaPlayer
+                download={playing}
+                playlist={playingPlaylist}
+                onClose={() => setPlayingId(null)}
+                onSelect={setPlayingId}
+              />
+            </ErrorBoundary>
           ) : (
             <>
               {/* Filter tabs */}
@@ -270,6 +294,8 @@ function App() {
                 onTabChange={setTabFilter}
                 counts={counts}
                 activeCategory={activeCategory}
+                isGridView={layout === 'grid'}
+                onViewToggle={() => setLayout(l => l === 'list' ? 'grid' : 'list')}
               />
 
           {/* Download list */}
@@ -311,7 +337,18 @@ function App() {
                 }
               />
             ) : (
-              <div>
+              <div
+                style={
+                  layout === 'grid'
+                    ? {
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
+                        gap: '16px',
+                        padding: '16px',
+                      }
+                    : {}
+                }
+              >
                 {filtered.map(d => (
                   <DownloadRow
                     key={d.id}
@@ -324,6 +361,7 @@ function App() {
                     onSelect={setSelectedId}
                     isSelected={selectedId === d.id}
                     actionLoading={actioning[d.id] || false}
+                    variant={layout}
                   />
                 ))}
               </div>
@@ -333,8 +371,8 @@ function App() {
       )}
     </main>
 
-        {/* Detail panel (right side) */}
-        {selectedDownload ? (
+        {/* Detail panel — hidden while inline player is open */}
+        {!playing && selectedDownload ? (
           <DetailPanel
             download={selectedDownload}
             progress={progress[selectedDownload.id]}
@@ -342,7 +380,7 @@ function App() {
             onPlay={handlePlay}
             onReveal={handleReveal}
           />
-        ) : (tabFilter === 'playlists' || tabFilter === 'artists') ? (
+        ) : !playing && (tabFilter === 'playlists' || tabFilter === 'artists') ? (
           <PlaylistDetailPanel
             group={activeGroup}
             onClose={() => setActiveGroupId(null)}

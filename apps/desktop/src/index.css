@@ -51,16 +51,20 @@ html, body, #root {
   color-scheme: dark;
 }
 
+[data-theme="light"] {
+  color-scheme: light;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+::-webkit-scrollbar-thumb { background: var(--dm-color-border-default); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--dm-color-border-strong); }
 
 /* Selection */
 ::selection {
-  background: rgba(34, 197, 94, 0.3);
-  color: #fff;
+  background: var(--dm-color-accent-subtle);
+  color: var(--dm-color-fg-primary);
 }
 
 /* Animations */

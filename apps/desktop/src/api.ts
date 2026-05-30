@@ -26,6 +26,7 @@ export const api = {
   startDownload: (id: string) => req<Download>('POST', `/api/downloads/${id}/start`),
   deleteDownload: (id: string) => req<void>('DELETE', `/api/downloads/${id}`),
   revealDownload: (id: string) => req<void>('POST', `/api/downloads/${id}/reveal`),
+  openDownload: (id: string) => req<void>('POST', `/api/downloads/${id}/open`),
   cleanupStuck: () => req<{ deleted: number; marked_failed: number }>('POST', '/api/downloads/cleanup'),
   health: () => req<{ status: string; version: string; active_downloads: number }>('GET', '/api/health'),
   probeMedia: (url: string) => req<MediaProbeResult>('POST', '/api/media/probe', { url }),
@@ -33,7 +34,7 @@ export const api = {
 };
 
 export function connectProgressWS(onMessage: (snap: ProgressSnapshot) => void): WebSocket {
-  const ws = new WebSocket(`${getWsBase()}/ws/progress`);
+  const ws = new WebSocket(`${getWsBase()}/api/ws/progress`);
   ws.onmessage = (evt) => {
     try {
       onMessage(JSON.parse(evt.data) as ProgressSnapshot);

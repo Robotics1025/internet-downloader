@@ -8,14 +8,16 @@
 // All UI surfaces (popup, content-script overlay, context menu) post messages
 // here so there is a single place that knows how to call the API.
 
-const DEFAULT_PORT = 6543;
-const PORT_RANGE = [6543, 6544, 6545, 6546, 6547, 6548, 6549, 6550, 6551, 6552];
+// Primary range: 6543–6552. The API tries these in order on startup, so this
+// is where it ends up 99% of the time.
+const PRIMARY_PORT_RANGE = [6543, 6544, 6545, 6546, 6547, 6548, 6549, 6550, 6551, 6552];
 const DISCOVERY_CACHE_TTL_MS = 30_000;
+const STORAGE_KEY_PORT = "dm_last_known_port";
 
 let _cachedPort = null;
 let _cachedAt = 0;
 
-async function _probePort(port, timeoutMs = 800) {
+async function _probePort(port, timeoutMs = 600) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -25,7 +27,6 @@ async function _probePort(port, timeoutMs = 800) {
     });
     if (!r.ok) return false;
     const body = await r.json().catch(() => null);
-    // Anything that responds with `{status: "ok", ...}` is plausibly the API.
     return !!(body && body.status === "ok");
   } catch {
     return false;
@@ -34,24 +35,73 @@ async function _probePort(port, timeoutMs = 800) {
   }
 }
 
+async function _loadStoredPort() {
+  try {
+    const got = await chrome.storage.local.get(STORAGE_KEY_PORT);
+    const p = got && got[STORAGE_KEY_PORT];
+    return typeof p === "number" && p > 0 && p < 65536 ? p : null;
+  } catch { return null; }
+}
+
+async function _saveStoredPort(port) {
+  try { await chrome.storage.local.set({ [STORAGE_KEY_PORT]: port }); } catch {}
+}
+
 async function discoverPort() {
+  // 1. In-memory cache (fast path within a single SW lifetime).
   if (_cachedPort && Date.now() - _cachedAt < DISCOVERY_CACHE_TTL_MS) {
     if (await _probePort(_cachedPort)) return _cachedPort;
   }
-  // Cache miss / stale — scan the range, default first.
-  for (const port of PORT_RANGE) {
+  // 2. Persisted last-known port — covers the case where the API stayed on
+  //    the same ephemeral port across SW restarts.
+  const stored = await _loadStoredPort();
+  if (stored && !PRIMARY_PORT_RANGE.includes(stored)) {
+    if (await _probePort(stored)) {
+      _cachedPort = stored;
+      _cachedAt = Date.now();
+      return stored;
+    }
+  }
+  // 3. Primary range — what the API uses by default.
+  for (const port of PRIMARY_PORT_RANGE) {
     if (await _probePort(port)) {
       _cachedPort = port;
       _cachedAt = Date.now();
+      await _saveStoredPort(port);
       return port;
     }
   }
-  // Nothing found.
+  // 4. Last resort: scan a chunk of the Linux ephemeral range in parallel.
+  //    Linux defaults to 32768–60999. We probe in batches of 100 to keep
+  //    things bounded; ~28k ports total but parallelism makes it ~30 s worst
+  //    case, which is fine for a fallback rarely-hit path.
+  const ephemeralFound = await _scanEphemeralRange();
+  if (ephemeralFound) {
+    _cachedPort = ephemeralFound;
+    _cachedAt = Date.now();
+    await _saveStoredPort(ephemeralFound);
+    return ephemeralFound;
+  }
   _cachedPort = null;
   throw new Error(
-    `Cannot reach DownloadMgr on 127.0.0.1 ports ${PORT_RANGE[0]}–${PORT_RANGE[PORT_RANGE.length - 1]}. ` +
-    `Is the desktop app running?`,
+    "Cannot reach DownloadMgr on 127.0.0.1. Is the desktop app running?",
   );
+}
+
+async function _scanEphemeralRange() {
+  const START = 32768;
+  const END = 60999;
+  const BATCH = 200;
+  for (let base = START; base <= END; base += BATCH) {
+    const tasks = [];
+    for (let p = base; p < Math.min(base + BATCH, END + 1); p++) {
+      tasks.push(_probePort(p, 250).then(ok => (ok ? p : null)));
+    }
+    const results = await Promise.all(tasks);
+    const hit = results.find(p => p !== null);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 async function apiBase() {

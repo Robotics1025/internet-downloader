@@ -53,7 +53,7 @@ function CircularProgress({ percent, color, size = 120, strokeWidth = 8 }: {
       </svg>
       {/* Center text */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold tabular-nums text-white">
+        <span className="text-2xl font-bold tabular-nums" style={{ color: 'var(--dm-color-fg-primary)' }}>
           {Math.round(percent)}%
         </span>
       </div>
@@ -69,12 +69,12 @@ function InfoRow({ icon, label, value, valueColor }: {
 }) {
   return (
     <div className="flex items-start gap-2 py-1.5">
-      <span className="text-xs shrink-0 mt-0.5" style={{ color: '#505a6e' }}>{icon}</span>
+      <span className="text-xs shrink-0 mt-0.5" style={{ color: 'var(--dm-color-fg-tertiary)' }}>{icon}</span>
       <div className="min-w-0 flex-1">
-        <span className="text-[11px] block" style={{ color: '#505a6e' }}>{label}</span>
+        <span className="text-[11px] block" style={{ color: 'var(--dm-color-fg-tertiary)' }}>{label}</span>
         <span
           className="text-[12px] font-medium block truncate mt-0.5"
-          style={{ color: valueColor || '#e2e8f0' }}
+          style={{ color: valueColor || 'var(--dm-color-fg-primary)' }}
           title={value}
         >
           {value}
@@ -86,6 +86,9 @@ function InfoRow({ icon, label, value, valueColor }: {
 
 export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: DetailPanelProps) {
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
+  const [autoStart, setAutoStart] = useState(true);
+  const [limitSpeed, setLimitSpeed] = useState(!!download.speed_limit);
+  const [speedVal, setSpeedVal] = useState(download.speed_limit?.toString() || '2000');
 
   const snap = progress;
   const downloaded = snap?.downloaded_bytes ?? download.downloaded_size;
@@ -101,7 +104,9 @@ export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: D
 
   const [g1, g2] = fileTypeGradient(download.file_name);
   const ext = fileExtLabel(download.file_name);
-  const isVideo = download.category === 'video' || ext === 'MP4' || ext === 'MKV' || ext === 'WEBM';
+  const isVideo = download.category === 'video' || ['MP4', 'MKV', 'WEBM', 'AVI', 'MOV'].includes(ext);
+  const isAudio = download.category === 'audio' || ['MP3', 'AAC', 'FLAC', 'WAV', 'OGG', 'M4A'].includes(ext);
+  const isMedia = isVideo || isAudio;
   const ytMatch = download.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
   const ytThumb = ytMatch ? `https://img.youtube.com/vi/${ytMatch[1]}/maxresdefault.jpg` : null;
 
@@ -117,23 +122,23 @@ export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: D
       id="detail-panel"
       className="w-[300px] shrink-0 h-full flex flex-col animate-fade-slide overflow-y-auto"
       style={{
-        background: '#0d1220',
-        borderLeft: '1px solid rgba(255,255,255,0.06)',
+        background: 'var(--dm-color-bg-elevated)',
+        borderLeft: '1px solid var(--dm-color-border-subtle)',
       }}
     >
       {/* Header */}
       <div
         className="flex items-center justify-between px-4 py-3 shrink-0"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ borderBottom: '1px solid var(--dm-color-border-subtle)' }}
       >
-        <h3 className="text-[13px] font-semibold text-white truncate flex-1 pr-2" title={download.file_name}>
+        <h3 className="text-[13px] font-semibold truncate flex-1 pr-2" style={{ color: 'var(--dm-color-fg-primary)' }} title={download.file_name}>
           {download.file_name}
         </h3>
         <button
           onClick={onClose}
           className="w-6 h-6 rounded-md flex items-center justify-center text-xs transition-all"
-          style={{ color: '#505a6e' }}
-          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+          style={{ color: 'var(--dm-color-fg-tertiary)' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--dm-color-bg-hover)')}
           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         >
           ✕
@@ -143,7 +148,7 @@ export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: D
       {/* Tabs */}
       <div
         className="flex shrink-0 px-4 gap-0"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ borderBottom: '1px solid var(--dm-color-border-subtle)' }}
       >
         {tabs.map(({ key, label }) => (
           <button
@@ -151,14 +156,14 @@ export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: D
             onClick={() => setActiveTab(key)}
             className="px-3 py-2.5 text-[11px] font-medium transition-all relative"
             style={{
-              color: activeTab === key ? '#e2e8f0' : '#505a6e',
+              color: activeTab === key ? 'var(--dm-color-fg-primary)' : 'var(--dm-color-fg-tertiary)',
             }}
           >
             {label}
             {activeTab === key && (
               <div
                 className="absolute bottom-0 left-1 right-1 h-[2px] rounded-full"
-                style={{ background: '#3b82f6' }}
+                style={{ background: 'var(--dm-color-accent-primary)' }}
               />
             )}
           </button>
@@ -169,14 +174,18 @@ export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: D
       {activeTab === 'overview' && (
         <div className="flex-1 overflow-y-auto">
           {isVideo && (
-            <div className="relative w-full aspect-video bg-black/50 overflow-hidden shrink-0 group" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="relative w-full aspect-video bg-black/50 overflow-hidden shrink-0 group" style={{ borderBottom: '1px solid var(--dm-color-border-subtle)' }}>
               {ytThumb ? (
                 <img src={ytThumb} alt="" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
               ) : (
                 <div className="absolute inset-0 opacity-80" style={{ background: `linear-gradient(135deg, ${g1}40, ${g2}20)` }} />
               )}
               <div className="absolute inset-0 flex items-center justify-center">
-                <button className="w-12 h-12 rounded-full flex items-center justify-center text-xl text-white transition-all transform hover:scale-110 shadow-lg" style={{ background: 'rgba(59,130,246,0.3)', backdropFilter: 'blur(4px)', border: '1px solid rgba(59,130,246,0.5)' }}>
+                <button
+                  onClick={() => onPlay && onPlay(download.id)}
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-xl text-white transition-all transform hover:scale-110 shadow-lg"
+                  style={{ background: 'rgba(59,130,246,0.4)', backdropFilter: 'blur(4px)', border: '1px solid var(--dm-color-accent-primary)' }}
+                >
                   ▶
                 </button>
               </div>
@@ -186,8 +195,8 @@ export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: D
           {/* Status Indicator */}
           {isCompleted && (
             <div className="flex items-center gap-1.5 px-4 pt-3 pb-1">
-              <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] text-white" style={{ background: '#22c55e' }}>✓</span>
-              <span className="text-[12px] font-semibold" style={{ color: '#22c55e' }}>Downloaded</span>
+              <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px]" style={{ background: 'var(--dm-color-status-success-text)', color: '#fff' }}>✓</span>
+              <span className="text-[12px] font-semibold" style={{ color: 'var(--dm-color-status-success-text)' }}>Downloaded</span>
             </div>
           )}
 
@@ -205,32 +214,32 @@ export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: D
             {/* Stats row */}
             <div className="mt-5 w-full px-4 space-y-2">
               <div className="flex items-center justify-between text-[11px]">
-                <span style={{ color: '#505a6e' }}>⬇ Downloaded</span>
-                <span className="font-medium text-white tabular-nums">{formatBytes(downloaded)}</span>
+                <span style={{ color: 'var(--dm-color-fg-tertiary)' }}>⬇ Downloaded</span>
+                <span className="font-medium tabular-nums" style={{ color: 'var(--dm-color-fg-primary)' }}>{formatBytes(downloaded)}</span>
               </div>
               <div className="flex items-center justify-between text-[11px]">
-                <span style={{ color: '#505a6e' }}>📦 Total Size</span>
-                <span className="font-medium text-white tabular-nums">{formatBytes(total)}</span>
+                <span style={{ color: 'var(--dm-color-fg-tertiary)' }}>📦 Total Size</span>
+                <span className="font-medium tabular-nums" style={{ color: 'var(--dm-color-fg-primary)' }}>{formatBytes(total)}</span>
               </div>
               {isActive && speed > 0 && (
                 <div className="flex items-center justify-between text-[11px]">
-                  <span style={{ color: '#505a6e' }}>⚡ Download Speed</span>
-                  <span className="font-medium tabular-nums" style={{ color: '#22c55e' }}>
+                  <span style={{ color: 'var(--dm-color-fg-tertiary)' }}>⚡ Download Speed</span>
+                  <span className="font-medium tabular-nums" style={{ color: 'var(--dm-color-status-success-text)' }}>
                     {formatSpeed(speed)}
                   </span>
                 </div>
               )}
               {isActive && eta !== null && (
                 <div className="flex items-center justify-between text-[11px]">
-                  <span style={{ color: '#505a6e' }}>⏱ Time Left</span>
-                  <span className="font-medium text-white tabular-nums">{formatEta(eta)}</span>
+                  <span style={{ color: 'var(--dm-color-fg-tertiary)' }}>⏱ Time Left</span>
+                  <span className="font-medium tabular-nums" style={{ color: 'var(--dm-color-fg-primary)' }}>{formatEta(eta)}</span>
                 </div>
               )}
               <div className="flex items-center justify-between text-[11px]">
-                <span style={{ color: '#505a6e' }}>🔄 Resume Capability</span>
+                <span style={{ color: 'var(--dm-color-fg-tertiary)' }}>🔄 Resume Capability</span>
                 <span
                   className="font-medium"
-                  style={{ color: download.resume_supported ? '#22c55e' : '#ef4444' }}
+                  style={{ color: download.resume_supported ? 'var(--dm-color-status-success-text)' : 'var(--dm-color-status-danger-text)' }}
                 >
                   {download.resume_supported ? 'Yes' : 'No'}
                 </span>
@@ -239,11 +248,11 @@ export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: D
           </div>
 
           {/* Divider */}
-          <div className="mx-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }} />
+          <div className="mx-4" style={{ borderTop: '1px solid var(--dm-color-border-subtle)' }} />
 
           {/* Details section */}
           <div className="px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] mb-2" style={{ color: '#505a6e' }}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] mb-2" style={{ color: 'var(--dm-color-fg-tertiary)' }}>
               Details
             </p>
             {isVideo && (
@@ -251,8 +260,8 @@ export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: D
                 <InfoRow
                   icon="🖥"
                   label="Resolution"
-                  value={download.file_name.toLowerCase().includes('4k') ? '3840 x 2160 (4K)' : '1920 x 1080 (1080p)'}
-                  valueColor="#8b5cf6"
+                  value={(download.file_name || '').toLowerCase().includes('4k') ? '3840 x 2160 (4K)' : '1920 x 1080 (1080p)'}
+                  valueColor="var(--dm-color-accent-primary)"
                 />
                 <InfoRow
                   icon="🎞"
@@ -265,7 +274,7 @@ export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: D
               icon="🔗"
               label={isVideo ? 'Source URL' : 'URL'}
               value={download.url}
-              valueColor="#3b82f6"
+              valueColor="var(--dm-color-status-info-text)"
             />
             <InfoRow
               icon="📁"
@@ -287,88 +296,102 @@ export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: D
           </div>
 
           {/* Divider */}
-          <div className="mx-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }} />
+          <div className="mx-4" style={{ borderTop: '1px solid var(--dm-color-border-subtle)' }} />
 
           {/* Advanced section */}
           <div className="px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] mb-2" style={{ color: '#505a6e' }}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] mb-2" style={{ color: 'var(--dm-color-fg-tertiary)' }}>
               Advanced
             </p>
 
             {/* Connections */}
             <div className="flex items-center justify-between py-2">
-              <span className="text-[12px]" style={{ color: '#8892a8' }}>Connections</span>
+              <span className="text-[12px]" style={{ color: 'var(--dm-color-fg-secondary)' }}>Connections</span>
               <div
                 className="px-2.5 py-1 rounded-md text-[11px] font-medium flex items-center gap-1"
                 style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  color: '#e2e8f0',
+                  background: 'var(--dm-color-bg-hover)',
+                  border: '1px solid var(--dm-color-border-subtle)',
+                  color: 'var(--dm-color-fg-primary)',
                 }}
               >
                 {download.segment_count} Threads
-                <span style={{ color: '#505a6e', fontSize: '8px' }}>▼</span>
+                <span style={{ color: 'var(--dm-color-fg-tertiary)', fontSize: '8px' }}>▼</span>
               </div>
             </div>
 
             {/* Priority */}
             <div className="flex items-center justify-between py-2">
-              <span className="text-[12px]" style={{ color: '#8892a8' }}>Priority</span>
+              <span className="text-[12px]" style={{ color: 'var(--dm-color-fg-secondary)' }}>Priority</span>
               <div
                 className="px-2.5 py-1 rounded-md text-[11px] font-medium flex items-center gap-1"
                 style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  color: '#e2e8f0',
+                  background: 'var(--dm-color-bg-hover)',
+                  border: '1px solid var(--dm-color-border-subtle)',
+                  color: 'var(--dm-color-fg-primary)',
                 }}
               >
                 High
-                <span style={{ color: '#505a6e', fontSize: '8px' }}>▼</span>
+                <span style={{ color: 'var(--dm-color-fg-tertiary)', fontSize: '8px' }}>▼</span>
               </div>
             </div>
 
             {/* Start on browser send toggle */}
             <div className="flex items-center justify-between py-2">
-              <span className="text-[12px]" style={{ color: '#8892a8' }}>Start download on browser send</span>
+              <span className="text-[12px]" style={{ color: 'var(--dm-color-fg-secondary)' }}>Start download on browser send</span>
               <div
+                onClick={() => setAutoStart(!autoStart)}
                 className="w-9 h-5 rounded-full relative cursor-pointer transition-all"
                 style={{
-                  background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                  boxShadow: '0 0 8px rgba(59,130,246,0.3)',
+                  background: autoStart ? 'linear-gradient(135deg, var(--dm-color-accent-primary), var(--dm-color-accent-primary-hover))' : 'var(--dm-color-bg-hover)',
+                  boxShadow: autoStart ? '0 0 8px var(--dm-color-accent-subtle)' : 'none',
                 }}
               >
                 <div
                   className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
-                  style={{ right: '2px' }}
+                  style={{
+                    left: autoStart ? 'auto' : '2px',
+                    right: autoStart ? '2px' : 'auto',
+                    background: autoStart ? '#fff' : 'var(--dm-color-fg-tertiary)'
+                  }}
                 />
               </div>
             </div>
 
             {/* Speed limit */}
             <div className="flex items-center justify-between py-2">
-              <span className="text-[12px]" style={{ color: '#8892a8' }}>Limit download speed</span>
+              <span className="text-[12px]" style={{ color: 'var(--dm-color-fg-secondary)' }}>Limit download speed</span>
               <div className="flex items-center gap-2">
                 <div
+                  onClick={() => setLimitSpeed(!limitSpeed)}
                   className="w-9 h-5 rounded-full relative cursor-pointer transition-all"
                   style={{
-                    background: 'rgba(255,255,255,0.1)',
+                    background: limitSpeed ? 'linear-gradient(135deg, var(--dm-color-accent-primary), var(--dm-color-accent-primary-hover))' : 'var(--dm-color-bg-hover)',
+                    boxShadow: limitSpeed ? '0 0 8px var(--dm-color-accent-subtle)' : 'none',
                   }}
                 >
                   <div
                     className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
-                    style={{ left: '2px', background: '#505a6e' }}
+                    style={{
+                      left: limitSpeed ? 'auto' : '2px',
+                      right: limitSpeed ? '2px' : 'auto',
+                      background: limitSpeed ? '#fff' : 'var(--dm-color-fg-tertiary)'
+                    }}
                   />
                 </div>
-                <div
-                  className="px-2 py-1 rounded text-[11px] tabular-nums"
+                <input
+                  type="text"
+                  value={speedVal}
+                  onChange={(e) => setSpeedVal(e.target.value.replace(/[^0-9]/g, ''))}
+                  disabled={!limitSpeed}
+                  className="px-2 py-1 rounded text-[11px] tabular-nums outline-none w-16"
                   style={{
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    color: '#505a6e',
+                    background: 'var(--dm-color-bg-hover)',
+                    border: limitSpeed ? '1px solid var(--dm-color-border-focus)' : '1px solid var(--dm-color-border-subtle)',
+                    color: limitSpeed ? 'var(--dm-color-fg-primary)' : 'var(--dm-color-fg-tertiary)',
                   }}
-                >
-                  {download.speed_limit ? `${download.speed_limit}` : '2000'} KB/s
-                </div>
+                />
+                <span className="text-[11px]" style={{ color: 'var(--dm-color-fg-tertiary)' }}>KB/s</span>
               </div>
             </div>
           </div>
@@ -380,8 +403,8 @@ export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: D
           <div
             className="rounded-xl p-4"
             style={{
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid rgba(255,255,255,0.06)',
+              background: 'var(--dm-color-bg-hover)',
+              border: '1px solid var(--dm-color-border-subtle)',
             }}
           >
             <div className="flex items-center gap-3 mb-3">
@@ -395,13 +418,13 @@ export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: D
                 {ext}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[12px] font-semibold text-white truncate">{download.file_name}</p>
-                <p className="text-[11px] mt-0.5" style={{ color: '#505a6e' }}>
+                <p className="text-[12px] font-semibold truncate" style={{ color: 'var(--dm-color-fg-primary)' }}>{download.file_name}</p>
+                <p className="text-[11px] mt-0.5" style={{ color: 'var(--dm-color-fg-tertiary)' }}>
                   {formatBytes(total)} · {ext}
                 </p>
               </div>
             </div>
-            <div className="h-1 w-full rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div className="h-1 w-full rounded-full overflow-hidden" style={{ background: 'var(--dm-color-border-subtle)' }}>
               <div
                 className="h-full rounded-full"
                 style={{
@@ -416,38 +439,50 @@ export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: D
 
       {activeTab === 'connections' && (
         <div className="flex-1 p-4 space-y-2">
-          {Array.from({ length: download.segment_count }, (_, i) => (
-            <div
-              key={i}
-              className="rounded-lg p-3"
-              style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.06)',
-              }}
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-medium text-white">Segment {i + 1}</span>
-                <span
-                  className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                  style={{
-                    background: isActive ? 'rgba(59,130,246,0.15)' : isCompleted ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.06)',
-                    color: isActive ? '#3b82f6' : isCompleted ? '#22c55e' : '#505a6e',
-                  }}
-                >
-                  {isActive ? 'Active' : isCompleted ? 'Done' : 'Idle'}
-                </span>
+          {Array.from({ length: download.segment_count }, (_, i) => {
+            // Use stable per-segment progress based on overall percent
+            const segPct = isCompleted
+              ? 100
+              : isActive
+              ? Math.min(100, ((percent ?? 0) + (i % 3) * 8 - (i % 2) * 4))
+              : 0;
+            return (
+              <div
+                key={i}
+                className="rounded-lg p-3"
+                style={{
+                  background: 'var(--dm-color-bg-hover)',
+                  border: '1px solid var(--dm-color-border-subtle)',
+                }}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-medium" style={{ color: 'var(--dm-color-fg-primary)' }}>Segment {i + 1}</span>
+                  <span
+                    className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                    style={{
+                      background: isActive ? 'var(--dm-color-accent-subtle)' : isCompleted ? 'var(--dm-color-status-success-surface)' : 'var(--dm-color-bg-hover)',
+                      color: isActive ? 'var(--dm-color-accent-primary)' : isCompleted ? 'var(--dm-color-status-success-text)' : 'var(--dm-color-fg-tertiary)',
+                    }}
+                  >
+                    {isActive ? 'Active' : isCompleted ? 'Done' : 'Idle'}
+                  </span>
+                </div>
+                <div className="h-1 w-full rounded-full overflow-hidden" style={{ background: 'var(--dm-color-border-subtle)' }}>
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${Math.max(0, Math.min(100, segPct))}%`,
+                      background: isActive
+                        ? 'var(--dm-color-accent-primary)'
+                        : isCompleted
+                        ? 'var(--dm-color-status-success-text)'
+                        : 'var(--dm-color-fg-tertiary)',
+                    }}
+                  />
+                </div>
               </div>
-              <div className="h-1 w-full rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: isCompleted ? '100%' : `${Math.max(Math.random() * 100, 30)}%`,
-                    background: isActive ? '#3b82f6' : isCompleted ? '#22c55e' : '#6b7280',
-                  }}
-                />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -456,46 +491,56 @@ export function DetailPanel({ download, progress, onClose, onPlay, onReveal }: D
           <div
             className="rounded-xl p-3 font-mono text-[10px] space-y-1 max-h-full overflow-y-auto"
             style={{
-              background: 'rgba(0,0,0,0.3)',
-              border: '1px solid rgba(255,255,255,0.04)',
-              color: '#505a6e',
+              background: 'var(--dm-color-bg-recessed)',
+              border: '1px solid var(--dm-color-border-subtle)',
+              color: 'var(--dm-color-fg-tertiary)',
             }}
           >
-            <p><span style={{ color: '#22c55e' }}>[INFO]</span> Download created at {formatDate(download.created_at)}</p>
+            <p><span style={{ color: 'var(--dm-color-status-success-text)' }}>[INFO]</span> Download created at {formatDate(download.created_at)}</p>
             {download.started_at && (
-              <p><span style={{ color: '#3b82f6' }}>[START]</span> Download started at {formatDate(download.started_at)}</p>
+              <p><span style={{ color: 'var(--dm-color-status-info-text)' }}>[START]</span> Download started at {formatDate(download.started_at)}</p>
             )}
             {download.segment_count > 1 && (
-              <p><span style={{ color: '#a855f7' }}>[SPLIT]</span> Split into {download.segment_count} segments</p>
+              <p><span style={{ color: 'var(--dm-color-accent-primary)' }}>[SPLIT]</span> Split into {download.segment_count} segments</p>
             )}
             {isActive && (
-              <p><span style={{ color: '#3b82f6' }}>[DL]</span> Downloading... {formatSpeed(speed)}</p>
+              <p><span style={{ color: 'var(--dm-color-status-info-text)' }}>[DL]</span> Downloading... {formatSpeed(speed)}</p>
             )}
             {download.completed_at && (
-              <p><span style={{ color: '#22c55e' }}>[DONE]</span> Completed at {formatDate(download.completed_at)}</p>
+              <p><span style={{ color: 'var(--dm-color-status-success-text)' }}>[DONE]</span> Completed at {formatDate(download.completed_at)}</p>
             )}
             {download.error_message && (
-              <p><span style={{ color: '#ef4444' }}>[ERR]</span> {download.error_message}</p>
+              <p><span style={{ color: 'var(--dm-color-status-danger-text)' }}>[ERR]</span> {download.error_message}</p>
             )}
           </div>
         </div>
       )}
       {/* Bottom Actions */}
-      <div className="p-4 mt-auto border-t border-white/5 flex items-center gap-2 bg-[#0d1220]">
-        <button 
-          onClick={() => onPlay && onPlay(download.id)}
-          className="flex-1 py-2.5 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-2 transition-all hover:brightness-110"
-          style={{ background: 'linear-gradient(135deg, #a855f7, #6366f1)', boxShadow: '0 4px 12px rgba(168,85,247,0.2)' }}
-        >
-          <span>▶</span> Play
-        </button>
+      <div className="p-4 mt-auto flex items-center gap-2" style={{ borderTop: '1px solid var(--dm-color-border-subtle)', background: 'var(--dm-color-bg-elevated)' }}>
+        {isCompleted && (
+          <button 
+            onClick={() => onPlay && onPlay(download.id)}
+            className="flex-1 py-2.5 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-2 transition-all hover:brightness-110"
+            style={{ background: 'linear-gradient(135deg, var(--dm-color-accent-primary), var(--dm-color-accent-primary-hover))', boxShadow: '0 4px 12px var(--dm-color-accent-subtle)' }}
+          >
+            {isMedia ? (
+              <>
+                <span>▶</span> Play
+              </>
+            ) : (
+              <>
+                <span>↗</span> Open File
+              </>
+            )}
+          </button>
+        )}
         <button 
           onClick={() => onReveal && onReveal(download.id)}
-          className="flex-1 py-2.5 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-2 transition-all hover:bg-white/10"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
+          className="flex-1 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all"
+          style={{ background: 'var(--dm-color-bg-hover)', border: '1px solid var(--dm-color-border-subtle)', color: 'var(--dm-color-fg-primary)' }}
         >
           <span>📁</span> Open Folder
-          <span className="ml-1 text-[#505a6e] text-[8px]">▼</span>
+          <span className="ml-1 text-[8px]" style={{ color: 'var(--dm-color-fg-tertiary)' }}>▼</span>
         </button>
       </div>
     </aside>
