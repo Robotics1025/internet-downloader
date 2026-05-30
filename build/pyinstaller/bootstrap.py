@@ -33,9 +33,15 @@ def _set_bundled_binary(env_var: str, name: str) -> None:
     if os.environ.get(env_var):
         # Honour explicit override (e.g. a developer pointing at a local build).
         return
-    candidate = _resource_dir() / name
-    if candidate.is_file():
-        os.environ[env_var] = str(candidate)
+    # On Windows the binary is `yt-dlp.exe` / `ffmpeg.exe`; everywhere else it
+    # has no extension. Try both so this works regardless of how the bundle
+    # was built.
+    base = _resource_dir()
+    for filename in (name, f"{name}.exe"):
+        candidate = base / filename
+        if candidate.is_file():
+            os.environ[env_var] = str(candidate)
+            return
 
 
 def main() -> None:

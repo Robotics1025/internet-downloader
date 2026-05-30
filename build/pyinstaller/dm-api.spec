@@ -39,13 +39,18 @@ if _PLATFORM is None:
     )
 
 BINARIES_DIR = SPEC_DIR / "binaries" / _PLATFORM
-YT_DLP = BINARIES_DIR / "yt-dlp"
-FFMPEG = BINARIES_DIR / "ffmpeg"
+
+# Vendored binary file names: on Windows they have .exe, elsewhere they don't.
+_EXE = ".exe" if platform.system() == "Windows" else ""
+YT_DLP = BINARIES_DIR / f"yt-dlp{_EXE}"
+FFMPEG = BINARIES_DIR / f"ffmpeg{_EXE}"
 
 if not YT_DLP.is_file() or not FFMPEG.is_file():
     raise SystemExit(
-        f"Vendored binaries missing in {BINARIES_DIR}. "
-        "Run ./build/pyinstaller/fetch_binaries.sh first."
+        f"Vendored binaries missing in {BINARIES_DIR} "
+        f"(expected {YT_DLP.name} and {FFMPEG.name}). "
+        "Run ./build/pyinstaller/fetch_binaries.sh first (Linux/macOS), "
+        "or the equivalent download step on Windows CI."
     )
 
 block_cipher = None
