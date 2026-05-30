@@ -18,6 +18,10 @@ jobs:
   build-windows:
     runs-on: windows-latest
     timeout-minutes: 75
+    # softprops/action-gh-release needs write access to create + update releases
+    # via the workflow's GITHUB_TOKEN.
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout source
@@ -178,7 +182,8 @@ jobs:
       # can download them from your Releases page instead of from Actions.
       # ─────────────────────────────────────────────────────────────────────
 
-      - name: Attach installers to GitHub Release
+      # On a vX.Y.Z tag: create a proper versioned release (e.g. "v0.1.1").
+      - name: Attach installers to versioned Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
@@ -186,3 +191,21 @@ jobs:
             apps/shell/target/release/bundle/msi/*.msi
             apps/shell/target/release/bundle/nsis/*.exe
           generate_release_notes: true
+
+      # On every push to main: update a rolling "latest" pre-release so users
+      # always have an installable build on the Releases page without you
+      # having to remember to tag.
+      - name: Update rolling 'latest' pre-release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest build (from main)
+          prerelease: true
+          body: |
+            Auto-built from the latest commit on `main`
+            (${{ github.sha }}).
+            For stable versioned releases see the tagged releases below.
+          files: |
+            apps/shell/target/release/bundle/msi/*.msi
+            apps/shell/target/release/bundle/nsis/*.exe
