@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { X, Clipboard, Star, Music } from 'lucide-react';
 import { api } from '../api';
 import type { MediaProbeResult } from '../types';
 
@@ -27,7 +28,6 @@ function looksLikeStreamingUrl(url: string): boolean {
 function looksLikePlaylistUrl(url: string): boolean {
   try {
     const u = new URL(url);
-    // YouTube: ?list=... (also &list=)  or  /playlist?list=...
     if (/youtube\.com|youtu\.be/i.test(u.hostname)) {
       return u.searchParams.has('list');
     }
@@ -126,7 +126,17 @@ export function AddDownloadDialog({ onAdd, onClose }: AddDownloadDialogProps) {
   const [probe, setProbe] = useState<MediaProbeResult | null>(null);
   const [pickedFormat, setPickedFormat] = useState<string | null>(null);
   const probeSeq = useRef(0);
+  const urlInputRef = useRef<HTMLInputElement>(null);
 
+  // Quick-action pill state (v1: visual only for quality/audio hints)
+  const [qualityHint, setQualityHint] = useState<'best' | 'audio' | null>(null);
+
+  // Focus the URL input when dialog mounts
+  useEffect(() => {
+    urlInputRef.current?.focus();
+  }, []);
+
+  // Load defaults
   useEffect(() => {
     let cancelled = false;
     api.getDefaults()
@@ -137,12 +147,18 @@ export function AddDownloadDialog({ onAdd, onClose }: AddDownloadDialogProps) {
     return () => { cancelled = true; };
   }, []);
 
+  // Esc to close
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const isPlaylist = looksLikePlaylistUrl(url);
 
-  // Auto-probe when the URL looks like a streaming host. Debounced. Skipped
-  // for playlist URLs — those go through the /playlist endpoint, which
-  // expands the playlist server-side; running the single-video probe would
-  // either hang on a YT radio mix or surface a confusing "Probe failed".
+  // Auto-probe debounced
   useEffect(() => {
     const trimmed = url.trim();
     setProbe(null);
@@ -170,8 +186,6 @@ export function AddDownloadDialog({ onAdd, onClose }: AddDownloadDialogProps) {
       } catch (e) {
         if (seq !== probeSeq.current) return;
         const msg = e instanceof Error ? e.message : String(e);
-        // "Failed to fetch" is the browser's network-level error — almost
-        // always "API isn't running". Make the hint actionable.
         const hint = /failed to fetch/i.test(msg)
           ? 'Probe failed: cannot reach the local API. Is the desktop backend running?'
           : `Probe failed: ${msg}`;
@@ -189,11 +203,21 @@ export function AddDownloadDialog({ onAdd, onClose }: AddDownloadDialogProps) {
     if (!trimmedUrl) return;
     setLoading(true);
     setError('');
+
+    // Resolve effective format: quality hint pills can override
+    let effectiveFormat = pickedFormat;
+    if (probe && qualityHint === 'audio') {
+      const audioChoice = buildChoices(probe).find((c) => c.kind === 'audio');
+      if (audioChoice) effectiveFormat = audioChoice.format_id;
+    } else if (probe && qualityHint === 'best') {
+      effectiveFormat = 'bv*+ba/best';
+    }
+
     try {
-      if (probe && pickedFormat) {
+      if (probe && effectiveFormat) {
         await onAdd(trimmedUrl, savePath.trim(), category, {
           file_name: 'media.download',
-          media_format_id: pickedFormat,
+          media_format_id: effectiveFormat,
         });
       } else {
         await onAdd(trimmedUrl, savePath.trim(), category);
@@ -206,215 +230,515 @@ export function AddDownloadDialog({ onAdd, onClose }: AddDownloadDialogProps) {
     }
   }
 
+  async function handlePasteFromClipboard() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) setUrl(text.trim());
+    } catch {
+      // Permission denied — do nothing
+    }
+  }
+
+  function handleBestQuality() {
+    setQualityHint('best');
+    if (probe) {
+      setPickedFormat('bv*+ba/best');
+      setCategory('video');
+    }
+  }
+
+  function handleAudioOnly() {
+    setQualityHint('audio');
+    if (probe) {
+      const audioChoice = buildChoices(probe).find((c) => c.kind === 'audio');
+      if (audioChoice) {
+        setPickedFormat(audioChoice.format_id);
+        setCategory('audio');
+      }
+    }
+  }
+
   const choices = probe ? buildChoices(probe) : [];
   const canSubmit = url.trim().length > 0 && !loading && !probing;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-    >
+    <>
+      {/* Inject keyframe animation */}
+      <style>{`
+        @keyframes dm-dialog-in {
+          from { opacity: 0; transform: scale(0.97) translateY(4px); }
+          to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes dm-overlay-in {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        .dm-dialog-overlay {
+          animation: dm-overlay-in var(--dm-duration-fast) var(--dm-easing-out) both;
+        }
+        .dm-dialog-card {
+          animation: dm-dialog-in var(--dm-duration-fast) var(--dm-easing-out) both;
+        }
+        .dm-url-input:focus {
+          border-color: var(--dm-color-border-focus) !important;
+          outline: 2px solid var(--dm-color-accent-subtle);
+          outline-offset: 0px;
+        }
+        .dm-pill-btn:hover {
+          background: var(--dm-color-bg-hover) !important;
+          color: var(--dm-color-fg-primary) !important;
+        }
+        .dm-cancel-btn:hover {
+          background: var(--dm-color-bg-hover) !important;
+          color: var(--dm-color-fg-primary) !important;
+        }
+        .dm-quality-row::-webkit-scrollbar { width: 4px; }
+        .dm-quality-row::-webkit-scrollbar-track { background: transparent; }
+        .dm-quality-row::-webkit-scrollbar-thumb { background: var(--dm-color-border-default); border-radius: 2px; }
+      `}</style>
+
+      {/* Overlay */}
       <div
-        className="w-full max-w-xl rounded-2xl shadow-2xl animate-fade-slide flex flex-col"
-        style={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.08)', maxHeight: '90vh' }}
+        className="dm-dialog-overlay"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 50,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+          background: 'rgba(0,0,0,.5)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+        }}
+        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
+        {/* Card */}
         <div
-          className="flex items-center justify-between px-6 pt-6 pb-4 shrink-0"
-          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+          className="dm-dialog-card"
+          style={{
+            width: '100%',
+            maxWidth: '520px',
+            maxHeight: '80vh',
+            background: 'var(--dm-color-bg-elevated)',
+            border: '1px solid var(--dm-color-border-subtle)',
+            borderRadius: 'var(--dm-radius-lg)',
+            padding: '24px',
+            boxShadow: '0 24px 48px rgba(0,0,0,.4)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0,
+            overflow: 'hidden',
+          }}
         >
-          <div>
-            <h2 className="text-lg font-bold text-white">Add Download</h2>
-            <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>
-              Paste a direct file URL or a YouTube/streaming link
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
-            style={{ color: '#64748b' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-          >
-            ✕
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>
-              URL *
-            </label>
-            <input
-              type="url"
-              required
-              placeholder="https://… or https://youtu.be/…"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all"
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexShrink: 0 }}>
+            <span
               style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                color: '#e2e8f0',
+                fontSize: 'var(--dm-text-lg)',
+                fontWeight: 'var(--dm-weight-semibold)',
+                color: 'var(--dm-color-fg-primary)',
+                lineHeight: 'var(--dm-leading-tight)',
               }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = '#6366f1')}
-              onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
-            />
-            {probing && (
-              <p className="text-xs mt-1.5" style={{ color: '#a5b4fc' }}>
-                ⟳ Inspecting stream…
-              </p>
-            )}
+            >
+              Add Download
+            </span>
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              style={{
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 'var(--dm-radius-md)',
+                border: 'none',
+                background: 'transparent',
+                color: 'var(--dm-color-fg-tertiary)',
+                cursor: 'pointer',
+                transition: 'background var(--dm-duration-fast) ease, color var(--dm-duration-fast) ease',
+                flexShrink: 0,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--dm-color-bg-hover)';
+                e.currentTarget.style.color = 'var(--dm-color-fg-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--dm-color-fg-tertiary)';
+              }}
+            >
+              <X size={14} strokeWidth={2} />
+            </button>
           </div>
 
-          {isPlaylist && (
-            <div
-              className="rounded-xl p-3 flex items-start gap-3"
-              style={{ background: 'rgba(168,85,247,0.10)', border: '1px solid rgba(168,85,247,0.30)' }}
-            >
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center text-base shrink-0"
-                style={{ background: 'rgba(168,85,247,0.18)', color: '#d8b4fe' }}
+          {/* Scrollable form body */}
+          <form
+            onSubmit={handleSubmit}
+            style={{ display: 'flex', flexDirection: 'column', gap: 0, overflowY: 'auto', flex: 1 }}
+          >
+            {/* URL field */}
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 'var(--dm-text-xs)',
+                  fontWeight: 'var(--dm-weight-medium)',
+                  color: 'var(--dm-color-fg-tertiary)',
+                  textTransform: 'uppercase',
+                  letterSpacing: 'var(--dm-tracking-wide)',
+                  marginBottom: '6px',
+                }}
               >
-                ▦
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-white">Playlist detected</p>
-                <p className="text-[11px] mt-0.5" style={{ color: '#c4b5fd' }}>
-                  All videos in this YouTube playlist will be queued. Each gets sorted into its
-                  uploader's folder (e.g. <code style={{ color: '#e9d5ff' }}>Videos/Gracie Abrams/…</code>).
+                URL
+              </label>
+              <input
+                ref={urlInputRef}
+                type="url"
+                required
+                placeholder="https://… or https://youtu.be/…"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                className="dm-url-input"
+                style={{
+                  width: '100%',
+                  height: '40px',
+                  background: 'var(--dm-color-bg-recessed)',
+                  border: '1px solid var(--dm-color-border-default)',
+                  borderRadius: 'var(--dm-radius-md)',
+                  padding: '0 12px',
+                  fontSize: 'var(--dm-text-sm)',
+                  color: 'var(--dm-color-fg-primary)',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  transition: 'border-color var(--dm-duration-fast) ease',
+                }}
+              />
+              {probing && (
+                <p style={{ fontSize: 'var(--dm-text-xs)', color: 'var(--dm-color-status-info-text)', marginTop: '6px' }}>
+                  Inspecting stream…
                 </p>
-              </div>
+              )}
             </div>
-          )}
 
-          {probe && (
-            <div
-              className="rounded-xl p-3"
-              style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)' }}
-            >
-              <div className="flex gap-3">
-                {probe.thumbnail && (
-                  <img
-                    src={probe.thumbnail}
-                    alt=""
-                    className="w-20 h-12 rounded-lg object-cover shrink-0"
-                    style={{ background: '#0f0f17' }}
-                  />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-white truncate">{probe.title}</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#94a3b8' }}>
-                    {probe.extractor}
-                    {probe.duration ? ` · ${formatDuration(probe.duration)}` : ''}
+            {/* Quick-action pills */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="dm-pill-btn"
+                onClick={handlePasteFromClipboard}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  background: 'var(--dm-color-bg-recessed)',
+                  border: '1px solid var(--dm-color-border-subtle)',
+                  borderRadius: 'var(--dm-radius-full)',
+                  padding: '6px 12px',
+                  fontSize: 'var(--dm-text-xs)',
+                  fontWeight: 'var(--dm-weight-medium)',
+                  color: 'var(--dm-color-fg-secondary)',
+                  cursor: 'pointer',
+                  transition: 'background var(--dm-duration-fast) ease, color var(--dm-duration-fast) ease',
+                }}
+              >
+                <Clipboard size={11} strokeWidth={2} />
+                Paste from clipboard
+              </button>
+              <button
+                type="button"
+                className="dm-pill-btn"
+                onClick={handleBestQuality}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  background: qualityHint === 'best'
+                    ? 'var(--dm-color-accent-subtle)'
+                    : 'var(--dm-color-bg-recessed)',
+                  border: `1px solid ${qualityHint === 'best' ? 'var(--dm-color-accent-primary)' : 'var(--dm-color-border-subtle)'}`,
+                  borderRadius: 'var(--dm-radius-full)',
+                  padding: '6px 12px',
+                  fontSize: 'var(--dm-text-xs)',
+                  fontWeight: 'var(--dm-weight-medium)',
+                  color: qualityHint === 'best'
+                    ? 'var(--dm-color-accent-primary)'
+                    : 'var(--dm-color-fg-secondary)',
+                  cursor: 'pointer',
+                  transition: 'background var(--dm-duration-fast) ease, color var(--dm-duration-fast) ease, border-color var(--dm-duration-fast) ease',
+                }}
+              >
+                <Star size={11} strokeWidth={2} />
+                Best quality
+              </button>
+              <button
+                type="button"
+                className="dm-pill-btn"
+                onClick={handleAudioOnly}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  background: qualityHint === 'audio'
+                    ? 'var(--dm-color-accent-subtle)'
+                    : 'var(--dm-color-bg-recessed)',
+                  border: `1px solid ${qualityHint === 'audio' ? 'var(--dm-color-accent-primary)' : 'var(--dm-color-border-subtle)'}`,
+                  borderRadius: 'var(--dm-radius-full)',
+                  padding: '6px 12px',
+                  fontSize: 'var(--dm-text-xs)',
+                  fontWeight: 'var(--dm-weight-medium)',
+                  color: qualityHint === 'audio'
+                    ? 'var(--dm-color-accent-primary)'
+                    : 'var(--dm-color-fg-secondary)',
+                  cursor: 'pointer',
+                  transition: 'background var(--dm-duration-fast) ease, color var(--dm-duration-fast) ease, border-color var(--dm-duration-fast) ease',
+                }}
+              >
+                <Music size={11} strokeWidth={2} />
+                Audio only
+              </button>
+            </div>
+
+            {/* Playlist notice */}
+            {isPlaylist && (
+              <div
+                style={{
+                  marginTop: '16px',
+                  borderRadius: 'var(--dm-radius-md)',
+                  padding: '12px',
+                  background: 'rgba(168,85,247,0.10)',
+                  border: '1px solid rgba(168,85,247,0.30)',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '12px',
+                }}
+              >
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: 'var(--dm-radius-sm)',
+                    background: 'rgba(168,85,247,0.18)',
+                    color: '#d8b4fe',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '14px',
+                    flexShrink: 0,
+                  }}
+                >
+                  ▦
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 'var(--dm-text-sm)', fontWeight: 'var(--dm-weight-semibold)', color: 'var(--dm-color-fg-primary)', margin: 0 }}>
+                    Playlist detected
+                  </p>
+                  <p style={{ fontSize: '11px', color: '#c4b5fd', marginTop: '2px', margin: 0 }}>
+                    All videos in this YouTube playlist will be queued. Each gets sorted into its uploader's folder.
                   </p>
                 </div>
               </div>
+            )}
 
-              <div className="mt-3">
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#a5b4fc' }}>
-                  Quality
-                </label>
-                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                  {choices.map((c) => {
-                    const selected = pickedFormat === c.format_id;
-                    return (
-                      <button
-                        key={c.format_id}
-                        type="button"
-                        onClick={() => {
-                          setPickedFormat(c.format_id);
-                          setCategory(c.kind === 'audio' ? 'audio' : 'video');
-                        }}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all"
-                        style={{
-                          background: selected ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.04)',
-                          border: `1px solid ${selected ? '#6366f1' : 'transparent'}`,
-                        }}
-                      >
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-white">{c.label}</p>
-                          <p className="text-[11px] mt-0.5 truncate" style={{ color: '#94a3b8' }}>
-                            {c.sub}
-                          </p>
-                        </div>
-                        <span className="text-xs shrink-0 ml-3" style={{ color: '#64748b' }}>
-                          {formatBytes(c.size)}
-                        </span>
-                      </button>
-                    );
-                  })}
+            {/* Probe result + quality picker */}
+            {probe && (
+              <div
+                style={{
+                  marginTop: '16px',
+                  borderRadius: 'var(--dm-radius-md)',
+                  padding: '12px',
+                  background: 'var(--dm-color-accent-subtle)',
+                  border: '1px solid var(--dm-color-border-focus)',
+                }}
+              >
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  {probe.thumbnail && (
+                    <img
+                      src={probe.thumbnail}
+                      alt=""
+                      style={{ width: '80px', height: '48px', borderRadius: 'var(--dm-radius-sm)', objectFit: 'cover', flexShrink: 0, background: 'var(--dm-color-bg-recessed)' }}
+                    />
+                  )}
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{ fontSize: 'var(--dm-text-sm)', fontWeight: 'var(--dm-weight-semibold)', color: 'var(--dm-color-fg-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {probe.title}
+                    </p>
+                    <p style={{ fontSize: 'var(--dm-text-xs)', color: 'var(--dm-color-fg-secondary)', margin: '2px 0 0 0' }}>
+                      {probe.extractor}{probe.duration ? ` · ${formatDuration(probe.duration)}` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '12px' }}>
+                  <label style={{ display: 'block', fontSize: 'var(--dm-text-xs)', fontWeight: 'var(--dm-weight-medium)', color: 'var(--dm-color-fg-tertiary)', textTransform: 'uppercase', letterSpacing: 'var(--dm-tracking-wide)', marginBottom: '6px' }}>
+                    Quality
+                  </label>
+                  <div className="dm-quality-row" style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '180px', overflowY: 'auto', paddingRight: '2px' }}>
+                    {choices.map((c) => {
+                      const selected = pickedFormat === c.format_id;
+                      return (
+                        <button
+                          key={c.format_id}
+                          type="button"
+                          onClick={() => {
+                            setPickedFormat(c.format_id);
+                            setCategory(c.kind === 'audio' ? 'audio' : 'video');
+                            setQualityHint(null);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 12px',
+                            borderRadius: 'var(--dm-radius-sm)',
+                            border: `1px solid ${selected ? 'var(--dm-color-border-focus)' : 'transparent'}`,
+                            background: selected ? 'rgba(124,106,247,0.18)' : 'rgba(255,255,255,0.03)',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'background var(--dm-duration-fast) ease',
+                          }}
+                        >
+                          <div style={{ minWidth: 0 }}>
+                            <p style={{ fontSize: 'var(--dm-text-sm)', fontWeight: 'var(--dm-weight-semibold)', color: 'var(--dm-color-fg-primary)', margin: 0 }}>{c.label}</p>
+                            <p style={{ fontSize: '11px', color: 'var(--dm-color-fg-tertiary)', margin: '1px 0 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.sub}</p>
+                          </div>
+                          <span style={{ fontSize: 'var(--dm-text-xs)', color: 'var(--dm-color-fg-tertiary)', flexShrink: 0, marginLeft: '12px' }}>
+                            {formatBytes(c.size)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
+            )}
+
+            {/* Save path */}
+            <div style={{ marginTop: '16px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 'var(--dm-text-xs)',
+                  fontWeight: 'var(--dm-weight-medium)',
+                  color: 'var(--dm-color-fg-tertiary)',
+                  textTransform: 'uppercase',
+                  letterSpacing: 'var(--dm-tracking-wide)',
+                  marginBottom: '6px',
+                }}
+              >
+                Save to
+              </label>
+              <input
+                type="text"
+                required
+                value={savePath}
+                onChange={(e) => setSavePath(e.target.value)}
+                className="dm-url-input"
+                style={{
+                  width: '100%',
+                  height: '40px',
+                  background: 'var(--dm-color-bg-recessed)',
+                  border: '1px solid var(--dm-color-border-default)',
+                  borderRadius: 'var(--dm-radius-md)',
+                  padding: '0 12px',
+                  fontSize: 'var(--dm-text-sm)',
+                  color: 'var(--dm-color-fg-primary)',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  transition: 'border-color var(--dm-duration-fast) ease',
+                }}
+              />
             </div>
-          )}
 
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>
-              Save to
-            </label>
-            <input
-              type="text"
-              required
-              value={savePath}
-              onChange={(e) => setSavePath(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all"
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                color: '#e2e8f0',
-              }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = '#6366f1')}
-              onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
-            />
-          </div>
+            <p style={{ fontSize: '11px', color: 'var(--dm-color-fg-tertiary)', marginTop: '8px' }}>
+              Files are auto-sorted by type into{' '}
+              <code style={{ fontFamily: 'var(--dm-font-mono)', color: 'var(--dm-color-fg-secondary)' }}>
+                Videos / Music / Documents / Archives / Pictures / Software / Other
+              </code>{' '}
+              subfolders.
+            </p>
 
-          <p className="text-[11px]" style={{ color: '#64748b' }}>
-            Files are auto-sorted by type into <code style={{ color: '#94a3b8' }}>Videos / Music / Documents / Archives / Pictures / Software / Other</code> subfolders.
-          </p>
+            {/* Error */}
+            {error && (
+              <div
+                style={{
+                  marginTop: '12px',
+                  padding: '10px 12px',
+                  borderRadius: 'var(--dm-radius-md)',
+                  background: 'var(--dm-color-status-danger-surface)',
+                  color: 'var(--dm-color-status-danger-text)',
+                  border: '1px solid rgba(242,87,87,0.2)',
+                  fontSize: 'var(--dm-text-xs)',
+                }}
+              >
+                {error}
+              </div>
+            )}
 
-          {error && (
+            {/* Footer */}
             <div
-              className="px-3 py-2 rounded-xl text-xs"
-              style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.2)' }}
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '8px',
+                marginTop: '24px',
+                flexShrink: 0,
+              }}
             >
-              ⚠ {error}
+              <button
+                type="button"
+                onClick={onClose}
+                className="dm-cancel-btn"
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--dm-color-border-default)',
+                  borderRadius: 'var(--dm-radius-md)',
+                  padding: '8px 16px',
+                  fontSize: 'var(--dm-text-sm)',
+                  fontWeight: 'var(--dm-weight-medium)',
+                  color: 'var(--dm-color-fg-secondary)',
+                  cursor: 'pointer',
+                  transition: 'background var(--dm-duration-fast) ease, color var(--dm-duration-fast) ease',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!canSubmit}
+                style={{
+                  background: 'var(--dm-color-accent-primary)',
+                  border: 'none',
+                  borderRadius: 'var(--dm-radius-md)',
+                  padding: '8px 18px',
+                  fontSize: 'var(--dm-text-sm)',
+                  fontWeight: 'var(--dm-weight-semibold)',
+                  color: '#fff',
+                  cursor: canSubmit ? 'pointer' : 'not-allowed',
+                  opacity: canSubmit ? 1 : 0.5,
+                  transition: 'background var(--dm-duration-fast) ease, opacity var(--dm-duration-fast) ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (canSubmit) e.currentTarget.style.background = 'var(--dm-color-accent-primary-hover)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'var(--dm-color-accent-primary)';
+                }}
+              >
+                {loading
+                  ? 'Adding…'
+                  : isPlaylist
+                    ? 'Queue Playlist'
+                    : probe
+                      ? 'Download Media'
+                      : 'Add Download'}
+              </button>
             </div>
-          )}
-
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors"
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                color: '#94a3b8',
-                border: '1px solid rgba(255,255,255,0.08)',
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all"
-              style={{
-                background: !canSubmit ? 'rgba(99,102,241,0.3)' : '#6366f1',
-                color: !canSubmit ? '#a5b4fc' : 'white',
-                cursor: !canSubmit ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {loading
-                ? '⏳ Adding…'
-                : isPlaylist
-                  ? '⬇ Queue Playlist'
-                  : probe
-                    ? '⬇ Download Media'
-                    : '⬇ Add Download'}
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

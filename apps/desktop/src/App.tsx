@@ -1,7 +1,9 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useDownloads } from './hooks/useDownloads';
+import { useTheme } from './hooks/useTheme';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
+import { ThemeSwitcher } from './components/ThemeSwitcher';
 import { FilterTabs } from './components/FilterTabs';
 import { DownloadRow } from './components/DownloadRow';
 import { DetailPanel } from './components/DetailPanel';
@@ -22,6 +24,7 @@ import {
 } from 'lucide-react';
 
 function App() {
+  const [theme, setTheme] = useTheme();
   const { downloads, progress, loading, error, startDownload, addDownload, deleteDownload, refresh } = useDownloads();
   const [sidebarFilter, setSidebarFilter] = useState('cat:video');
   const [tabFilter, setTabFilter] = useState('playlists');
@@ -227,6 +230,7 @@ function App() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         activeCategory={activeCategory}
+        themeSwitcher={<ThemeSwitcher theme={theme} onChange={setTheme} />}
       />
 
       {/* Main content area */}

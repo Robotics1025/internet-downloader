@@ -1,13 +1,15 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 
 interface TopBarProps {
   onAddClick: () => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   activeCategory: string;
+  themeSwitcher?: ReactNode;
 }
 
-export function TopBar({ onAddClick, searchQuery, onSearchChange, activeCategory }: TopBarProps) {
+export function TopBar({ onAddClick, searchQuery, onSearchChange, activeCategory, themeSwitcher }: TopBarProps) {
   const [searchFocused, setSearchFocused] = useState(false);
   const isVideo = activeCategory === 'video';
   const searchPlaceholder = isVideo ? "Paste URL or search for videos" : "Paste URL or search for downloads";
@@ -102,6 +104,12 @@ export function TopBar({ onAddClick, searchQuery, onSearchChange, activeCategory
 
       {/* Right toolbar icons */}
       <div className="flex items-center gap-1 shrink-0 ml-1">
+        {themeSwitcher && (
+          <>
+            {themeSwitcher}
+            <div className="w-px h-5 mx-1" style={{ background: 'rgba(255,255,255,0.08)' }} />
+          </>
+        )}
         {/* Settings */}
         <button
           className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200"
