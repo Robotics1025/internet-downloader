@@ -141,14 +141,6 @@ function IconSettings() {
     </svg>
   );
 }
-function IconArrowDown() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M8 3v8M5 8l3 3 3-3" />
-    </svg>
-  );
-}
-
 type NavRowIconType = () => React.ReactElement;
 
 const STATUS_FILTERS: { key: string; label: string; Icon: NavRowIconType }[] = [

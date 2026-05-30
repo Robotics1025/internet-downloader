@@ -10,7 +10,7 @@ import {
   Plus,
 } from "lucide-react";
 
-import { useSettings, Settings, Quality } from "../hooks/useSettings";
+import { useSettings, type Settings, type Quality } from "../hooks/useSettings";
 import { useTheme } from "../hooks/useTheme";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
 import { EmptyState } from "../components/EmptyState";
@@ -485,7 +485,7 @@ type SettingsScreenProps = {
   onClose: () => void;
 };
 
-export function SettingsScreen({ onClose }: SettingsScreenProps): JSX.Element {
+export function SettingsScreen({ onClose }: SettingsScreenProps) {
   ensureSpinStyles();
 
   const { data, loading, error, update, refetch } = useSettings();
