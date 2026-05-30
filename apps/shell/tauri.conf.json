@@ -18,7 +18,7 @@
   "bundle": {
     "active": true,
     "targets": ["appimage"],
-    "icon": ["icons/icon.png"],
+    "icon": ["icons/icon.png", "icons/tray.png"],
     "category": "Utility",
     "shortDescription": "Download manager for video, audio, and files.",
     "longDescription": "A local-only download manager that wraps yt-dlp with a desktop UI.",

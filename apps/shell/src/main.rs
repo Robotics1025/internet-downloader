@@ -2,6 +2,7 @@
 
 mod error;
 mod sidecar;
+mod tray;
 
 use tauri::{Manager, WebviewWindowBuilder, WebviewUrl};
 
@@ -23,7 +24,7 @@ fn main() {
                 match sidecar::start(&handle).await {
                     Ok(port) => {
                         let init = format!("window.__DM_API_PORT__ = {port};");
-                        if let Err(err) = WebviewWindowBuilder::new(
+                        match WebviewWindowBuilder::new(
                             &handle,
                             "main",
                             WebviewUrl::App("index.html".into()),
@@ -34,7 +35,23 @@ fn main() {
                         .initialization_script(&init)
                         .build()
                         {
-                            eprintln!("failed to open main window: {err}");
+                            Ok(window) => {
+                                // Closing the window hides it to tray instead of quitting.
+                                let window_clone = window.clone();
+                                window.on_window_event(move |event| {
+                                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                                        let _ = window_clone.hide();
+                                        api.prevent_close();
+                                    }
+                                });
+
+                                if let Err(e) = tray::install(&handle) {
+                                    eprintln!("failed to install tray icon: {e}");
+                                }
+                            }
+                            Err(err) => {
+                                eprintln!("failed to open main window: {err}");
+                            }
                         }
                     }
                     Err(err) => {
