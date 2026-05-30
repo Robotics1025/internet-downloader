@@ -1,0 +1,187 @@
+name: Build Linux Packages
+
+# Trigger on every push to main, every version tag (vX.Y.Z), and via the
+# Actions tab "Run workflow" button.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: build-linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-linux:
+    # ubuntu-22.04 gives the widest compatibility (older glibc) while still
+    # having libwebkit2gtk-4.1-dev available. Bundles built here run on:
+    #   - Ubuntu 22.04 / 24.04 / 25.04
+    #   - Debian 12+ / Mint 21+ / Pop!_OS 22.04+ / Zorin 17+
+    #   - Fedora 39+ (via .rpm)
+    #   - Arch / Manjaro (via AppImage)
+    #   - openSUSE Tumbleweed (via .rpm)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # ─────────────────────────────────────────────────────────────────────
+      # System dependencies — Tauri 2.x needs webkit2gtk-4.1 (newer than the
+      # 4.0 that older Tauri 1.x guides reference). librsvg2 is for icon
+      # rendering, libsoup-3.0 for the HTTP client, libayatana-appindicator
+      # for the tray icon plugin.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libsoup-3.0-dev \
+            patchelf \
+            file \
+            rpm
+
+      # ─────────────────────────────────────────────────────────────────────
+      # Toolchain setup
+      # ─────────────────────────────────────────────────────────────────────
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Set up Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry + build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/shell/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('apps/shell/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install API Python deps
+        working-directory: apps/api
+        run: uv sync
+
+      # ─────────────────────────────────────────────────────────────────────
+      # Vendored binaries (yt-dlp + ffmpeg) — re-fetched each run; not
+      # committed (would blow past GitHub's 100 MB file limit).
+      # ─────────────────────────────────────────────────────────────────────
+
+      - name: Download yt-dlp + ffmpeg (Linux x86_64)
+        run: |
+          chmod +x build/pyinstaller/fetch_binaries.sh
+          ./build/pyinstaller/fetch_binaries.sh
+          ls -la build/pyinstaller/binaries/linux-x86_64/
+
+      # ─────────────────────────────────────────────────────────────────────
+      # PyInstaller — produces a single dm-api binary (~100 MB) with the
+      # FastAPI app + yt-dlp + ffmpeg baked in.
+      # ─────────────────────────────────────────────────────────────────────
+
+      - name: Build dm-api via PyInstaller
+        working-directory: apps/api
+        run: |
+          uv run pyinstaller --noconfirm \
+            --distpath ../../build/pyinstaller/dist \
+            --workpath ../../build/pyinstaller/build \
+            ../../build/pyinstaller/dm-api.spec
+          ls -la ../../build/pyinstaller/dist/
+
+      - name: Stage sidecar for Tauri
+        run: |
+          TRIPLE=$(rustc -vV | grep "host:" | awk '{print $2}')
+          mkdir -p apps/shell/binaries
+          cp build/pyinstaller/dist/dm-api "apps/shell/binaries/dm-api-$TRIPLE"
+          chmod +x "apps/shell/binaries/dm-api-$TRIPLE"
+          ls -la apps/shell/binaries/
+
+      # ─────────────────────────────────────────────────────────────────────
+      # React frontend
+      # ─────────────────────────────────────────────────────────────────────
+
+      - name: Build React frontend
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          npm run build
+
+      # ─────────────────────────────────────────────────────────────────────
+      # Tauri — produces THREE bundle formats so every Linux user has
+      # something they can install:
+      #   * AppImage  — universal portable file, double-click to run
+      #                 (works on every modern Linux distro)
+      #   * .deb      — Ubuntu, Debian, Mint, Pop!_OS, Zorin
+      #   * .rpm      — Fedora, RHEL, openSUSE, Mageia
+      # ─────────────────────────────────────────────────────────────────────
+
+      - name: Install Tauri CLI v2
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Build Tauri bundles (AppImage + .deb + .rpm)
+        working-directory: apps/shell
+        # --bundles overrides the "appimage" target in tauri.conf.json so we
+        # get all three formats out of one build.
+        run: cargo tauri build --bundles appimage,deb,rpm
+
+      - name: Show built bundles
+        run: |
+          echo "=== AppImage ==="
+          ls -lh apps/shell/target/release/bundle/appimage/ 2>/dev/null || echo "(none)"
+          echo "=== .deb ==="
+          ls -lh apps/shell/target/release/bundle/deb/ 2>/dev/null || echo "(none)"
+          echo "=== .rpm ==="
+          ls -lh apps/shell/target/release/bundle/rpm/ 2>/dev/null || echo "(none)"
+
+      # ─────────────────────────────────────────────────────────────────────
+      # Artifacts — downloadable from the run page.
+      # ─────────────────────────────────────────────────────────────────────
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: DownloadMgr-Linux-Packages
+          path: |
+            apps/shell/target/release/bundle/appimage/*.AppImage
+            apps/shell/target/release/bundle/deb/*.deb
+            apps/shell/target/release/bundle/rpm/*.rpm
+          if-no-files-found: error
+          retention-days: 30
+
+      # ─────────────────────────────────────────────────────────────────────
+      # When a vX.Y.Z tag is pushed, also attach the bundles to the matching
+      # GitHub Release so users can grab them from the Releases page.
+      # ─────────────────────────────────────────────────────────────────────
+
+      - name: Attach packages to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            apps/shell/target/release/bundle/appimage/*.AppImage
+            apps/shell/target/release/bundle/deb/*.deb
+            apps/shell/target/release/bundle/rpm/*.rpm
+          generate_release_notes: true
