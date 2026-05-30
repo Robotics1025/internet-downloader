@@ -453,6 +453,13 @@ export function Sidebar({ activeFilter, onFilterChange, counts, categoryCounts, 
             Download from any website with one click.
           </p>
           <button
+            onClick={() => {
+              const url = 'https://github.com/Robotics1025/internet_dowanloader/tree/main/apps/browser-extension';
+              // In packaged Tauri, window.open spawns the system default browser
+              // (Tauri intercepts http(s) URLs unless the webview is told to
+              // navigate). In Vite dev mode it works the same way.
+              window.open(url, '_blank', 'noopener,noreferrer');
+            }}
             style={{
               width: '100%',
               fontSize: 'var(--dm-text-xs)',

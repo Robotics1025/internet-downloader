@@ -260,9 +260,12 @@
 
   async function tryProbe(url) {
     try {
+      // If the background service worker can't reach the API on any of the
+      // discovery ports it returns {ok:false, error:"..."}. We pass the raw
+      // response back so the caller can show the error to the user.
       return await chrome.runtime.sendMessage({ kind: 'probe', url });
-    } catch {
-      return null;
+    } catch (e) {
+      return { ok: false, error: (e && e.message) || 'extension message failed' };
     }
   }
 
@@ -355,8 +358,12 @@
     }
 
     if (!res?.ok) {
-      if (!res) {
-        panel.innerHTML = `<div class="dmgr-panel-inner dmgr-err">Cannot reach DownloadMgr at 127.0.0.1:6543</div>`;
+      // Surface the real backend error when present (e.g. "Cannot reach
+      // DownloadMgr on 127.0.0.1 ports 6543–6552. Is the desktop app running?")
+      // instead of pretending we know which port to suggest.
+      if (!res || (res.error && /cannot reach/i.test(res.error))) {
+        const detail = (res && res.error) || 'Cannot reach DownloadMgr on 127.0.0.1. Is the desktop app running?';
+        panel.innerHTML = `<div class="dmgr-panel-inner dmgr-err">${escapeHtml(detail)}</div>`;
         return;
       }
       if (imgSrc) {

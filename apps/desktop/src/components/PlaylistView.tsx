@@ -261,6 +261,42 @@ export function PlaylistView({
               >
                 📁 Open Folder
               </button>
+              <button
+                onClick={() => {
+                  const count = active.items.length;
+                  if (!confirm(
+                    `Delete the "${active.name}" playlist and all ${count} of its videos?\n\nThis removes the files from disk and cannot be undone.`,
+                  )) return;
+                  // Fire-and-forget: parent's onDelete handles API + state.
+                  for (const item of active.items) {
+                    onDelete(item.id);
+                  }
+                  // Clean up any localStorage overrides pointing at this playlist.
+                  setCustomNames(prev => {
+                    if (!(active.id in prev)) return prev;
+                    const next = { ...prev }; delete next[active.id];
+                    localStorage.setItem('dm_playlist_names', JSON.stringify(next));
+                    return next;
+                  });
+                  setCustomAssignments(prev => {
+                    const next = Object.fromEntries(
+                      Object.entries(prev).filter(([, target]) => target !== active.id),
+                    );
+                    localStorage.setItem('dm_playlist_assignments', JSON.stringify(next));
+                    return next;
+                  });
+                  onActiveGroupChange(null);
+                }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm"
+                style={{
+                  background: 'transparent',
+                  color: 'var(--dm-color-status-danger-text)',
+                  border: '1px solid var(--dm-color-status-danger-text)',
+                }}
+                title="Delete playlist and all its videos"
+              >
+                🗑 Delete Playlist
+              </button>
             </div>
           </div>
         </div>
