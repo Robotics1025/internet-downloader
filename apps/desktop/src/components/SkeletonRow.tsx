@@ -1,5 +1,3 @@
-import React from 'react';
-
 // Shimmer keyframes injected once into the document head
 const SHIMMER_STYLE_ID = 'dm-skeleton-shimmer-style';
 
