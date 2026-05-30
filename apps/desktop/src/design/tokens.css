@@ -1,0 +1,191 @@
+/* =============================================================================
+   DownloadMgr Design Tokens
+   Obsidian-Chrome pro-tool aesthetic — cold violet accent, surgical precision
+   ============================================================================= */
+
+/* ---------------------------------------------------------------------------
+   Raw palette (internal — not for direct use in components)
+   --------------------------------------------------------------------------- */
+:root {
+  /* Brand hue: cold violet-indigo */
+  --_accent-500: #7C6AF7;
+  --_accent-400: #9589F9;
+  --_accent-900: rgba(124, 106, 247, 0.12);
+
+  /* Dark palette (cool near-black) */
+  --_dark-base:    #0D0E12;
+  --_dark-100:     #12141A;
+  --_dark-150:     #16181F;
+  --_dark-200:     #1C1E27;
+  --_dark-300:     #252830;
+  --_dark-400:     #2F3240;
+
+  /* Light palette (warm-neutral) */
+  --_light-base:   #F7F7F8;
+  --_light-100:    #FFFFFF;
+  --_light-150:    #F0F0F2;
+  --_light-200:    #E8E8EB;
+  --_light-300:    #D4D4D9;
+  --_light-400:    #ACACB5;
+
+  /* Status raws */
+  --_success:      #2DD4A8;
+  --_success-bg:   rgba(45, 212, 168, 0.10);
+  --_warning:      #F0A500;
+  --_warning-bg:   rgba(240, 165, 0, 0.10);
+  --_danger:       #F25757;
+  --_danger-bg:    rgba(242, 87, 87, 0.10);
+  --_info:         #5BA8F5;
+  --_info-bg:      rgba(91, 168, 245, 0.10);
+}
+
+/* =============================================================================
+   DARK THEME (default — applied to :root so no JS required on cold start)
+   ============================================================================= */
+:root,
+[data-theme="dark"] {
+
+  /* ── Color: Backgrounds ── */
+  --dm-color-bg-app:       #0D0E12;
+  --dm-color-bg-elevated:  #16181F;
+  --dm-color-bg-recessed:  #0A0B0F;
+  --dm-color-bg-hover:     rgba(255, 255, 255, 0.04);
+  --dm-color-bg-selected:  rgba(124, 106, 247, 0.14);
+
+  /* ── Color: Foregrounds ── */
+  --dm-color-fg-primary:   #E8E9EE;
+  --dm-color-fg-secondary: #9096A8;
+  --dm-color-fg-tertiary:  #5C6070;
+  --dm-color-fg-disabled:  #3A3D4A;
+
+  /* ── Color: Borders ── */
+  --dm-color-border-subtle:  rgba(255, 255, 255, 0.05);
+  --dm-color-border-default: rgba(255, 255, 255, 0.09);
+  --dm-color-border-strong:  rgba(255, 255, 255, 0.18);
+  --dm-color-border-focus:   rgba(124, 106, 247, 0.70);
+
+  /* ── Color: Accent ── */
+  --dm-color-accent-primary:       #7C6AF7;
+  --dm-color-accent-primary-hover: #9589F9;
+  --dm-color-accent-subtle:        rgba(124, 106, 247, 0.12);
+
+  /* ── Color: Status — success ── */
+  --dm-color-status-success-surface: rgba(45, 212, 168, 0.10);
+  --dm-color-status-success-text:    #2DD4A8;
+
+  /* ── Color: Status — warning ── */
+  --dm-color-status-warning-surface: rgba(240, 165, 0, 0.10);
+  --dm-color-status-warning-text:    #F0A500;
+
+  /* ── Color: Status — danger ── */
+  --dm-color-status-danger-surface:  rgba(242, 87, 87, 0.10);
+  --dm-color-status-danger-text:     #F25757;
+
+  /* ── Color: Status — info ── */
+  --dm-color-status-info-surface:    rgba(91, 168, 245, 0.10);
+  --dm-color-status-info-text:       #5BA8F5;
+
+  /* ── Spacing (4px scale) ── */
+  --dm-space-1:   4px;
+  --dm-space-2:   8px;
+  --dm-space-3:   12px;
+  --dm-space-4:   16px;
+  --dm-space-5:   20px;
+  --dm-space-6:   24px;
+  --dm-space-7:   28px;
+  --dm-space-8:   32px;
+  --dm-space-9:   36px;
+  --dm-space-10:  40px;
+
+  /* ── Typography: Scale ── */
+  --dm-text-xs:   11px;
+  --dm-text-sm:   13px;
+  --dm-text-md:   14px;
+  --dm-text-lg:   16px;
+  --dm-text-xl:   20px;
+  --dm-text-2xl:  28px;
+
+  /* ── Typography: Weights ── */
+  --dm-weight-regular:  400;
+  --dm-weight-medium:   500;
+  --dm-weight-semibold: 600;
+
+  /* ── Typography: Line Heights ── */
+  --dm-leading-tight:  1.2;
+  --dm-leading-normal: 1.5;
+
+  /* ── Typography: Font Family ── */
+  --dm-font-family: "Geist", "SF Pro Display", -apple-system, BlinkMacSystemFont,
+                    "Segoe UI Variable", system-ui, sans-serif;
+  --dm-font-mono:   "Geist Mono", "SF Mono", "Cascadia Code", ui-monospace,
+                    "Fira Code", monospace;
+
+  /* ── Typography: Letter Spacing ── */
+  --dm-tracking-tight:  -0.02em;
+  --dm-tracking-normal:  0em;
+  --dm-tracking-wide:    0.04em;
+  --dm-tracking-widest:  0.08em;
+
+  /* ── Radius ── */
+  --dm-radius-sm:   4px;
+  --dm-radius-md:   8px;
+  --dm-radius-lg:   12px;
+  --dm-radius-full: 9999px;
+
+  /* ── Motion ── */
+  --dm-duration-fast:   120ms;
+  --dm-duration-normal: 180ms;
+  --dm-duration-slow:   260ms;
+  --dm-easing-standard: cubic-bezier(0.16, 1, 0.3, 1);
+  --dm-easing-linear:   linear;
+  --dm-easing-in:       cubic-bezier(0.4, 0, 1, 1);
+  --dm-easing-out:      cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* =============================================================================
+   LIGHT THEME
+   ============================================================================= */
+[data-theme="light"] {
+
+  /* ── Color: Backgrounds ── */
+  --dm-color-bg-app:       #F4F4F6;
+  --dm-color-bg-elevated:  #FFFFFF;
+  --dm-color-bg-recessed:  #ECEDF0;
+  --dm-color-bg-hover:     rgba(0, 0, 0, 0.04);
+  --dm-color-bg-selected:  rgba(124, 106, 247, 0.10);
+
+  /* ── Color: Foregrounds ── */
+  --dm-color-fg-primary:   #111216;
+  --dm-color-fg-secondary: #5C6070;
+  --dm-color-fg-tertiary:  #9096A8;
+  --dm-color-fg-disabled:  #C0C3CC;
+
+  /* ── Color: Borders ── */
+  --dm-color-border-subtle:  rgba(0, 0, 0, 0.05);
+  --dm-color-border-default: rgba(0, 0, 0, 0.09);
+  --dm-color-border-strong:  rgba(0, 0, 0, 0.18);
+  --dm-color-border-focus:   rgba(124, 106, 247, 0.60);
+
+  /* ── Color: Accent ── */
+  --dm-color-accent-primary:       #6355E0;
+  --dm-color-accent-primary-hover: #7C6AF7;
+  --dm-color-accent-subtle:        rgba(99, 85, 224, 0.10);
+
+  /* ── Color: Status — success ── */
+  --dm-color-status-success-surface: rgba(10, 150, 110, 0.10);
+  --dm-color-status-success-text:    #0A9670;
+
+  /* ── Color: Status — warning ── */
+  --dm-color-status-warning-surface: rgba(194, 120, 0, 0.10);
+  --dm-color-status-warning-text:    #C27800;
+
+  /* ── Color: Status — danger ── */
+  --dm-color-status-danger-surface:  rgba(210, 50, 50, 0.10);
+  --dm-color-status-danger-text:     #D23232;
+
+  /* ── Color: Status — info ── */
+  --dm-color-status-info-surface:    rgba(30, 100, 200, 0.10);
+  --dm-color-status-info-text:       #1E64C8;
+
+  /* Spacing, typography, radius, motion inherit from :root — no overrides needed */
+}
