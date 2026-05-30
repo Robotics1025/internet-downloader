@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { DownloadRow } from './DownloadRow';
 import type { Download, ProgressSnapshot } from '../types';
 import { formatBytes } from '../utils';
@@ -88,7 +88,31 @@ export function PlaylistView({
   downloads, progress, onStart, onDelete, onPlay, onReveal, onSelect, selectedId, actioning,
   activeGroupId, onActiveGroupChange,
 }: PlaylistViewProps) {
-  const groups = useMemo(() => buildGroups(downloads), [downloads]);
+  const [customNames, setCustomNames] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('dm_playlist_names') || '{}');
+    } catch {
+      return {};
+    }
+  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+
+  const groups = useMemo(() => {
+    const gs = buildGroups(downloads);
+    for (const g of gs) {
+      if (customNames[g.id]) g.name = customNames[g.id];
+    }
+    return gs;
+  }, [downloads, customNames]);
+
+  const handleRename = (id: string, newName: string) => {
+    const updated = { ...customNames, [id]: newName.trim() };
+    if (!updated[id]) delete updated[id];
+    setCustomNames(updated);
+    localStorage.setItem('dm_playlist_names', JSON.stringify(updated));
+    setEditingId(null);
+  };
 
   // Default-select the first group when one becomes available.
   const effectiveActive = activeGroupId && groups.some(g => g.id === activeGroupId)
@@ -101,13 +125,13 @@ export function PlaylistView({
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
         <div
           className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 text-2xl"
-          style={{ background: 'rgba(168,85,247,0.10)', color: '#a855f7' }}
+          style={{ background: 'var(--dm-color-accent-subtle)', color: 'var(--dm-color-accent-primary)' }}
         >
           ▦
         </div>
-        <p className="text-sm font-medium text-white">No playlists or artists yet</p>
-        <p className="text-xs mt-1.5 max-w-sm" style={{ color: '#8892a8' }}>
-          Paste a YouTube playlist URL (one with <code style={{ color: '#cbd5e1' }}>?list=</code>) or
+        <p className="text-sm font-medium" style={{ color: 'var(--dm-color-fg-primary)' }}>No playlists or artists yet</p>
+        <p className="text-xs mt-1.5 max-w-sm" style={{ color: 'var(--dm-color-fg-secondary)' }}>
+          Paste a YouTube playlist URL (one with <code style={{ color: 'var(--dm-color-fg-primary)' }}>?list=</code>) or
           download videos from the same channel — they'll be grouped here automatically.
         </p>
       </div>
@@ -121,13 +145,13 @@ export function PlaylistView({
     <div className="flex flex-col p-6 h-full overflow-y-auto" style={{ gap: '20px' }}>
       {/* Hero: currently-selected group */}
       {active && (
-        <div className="flex gap-6 items-center">
+        <div className="flex gap-6 items-center shrink-0">
           <div
             className="w-44 h-44 rounded-2xl shrink-0 relative overflow-hidden"
             style={{
               background: active.thumb
                 ? `center / cover no-repeat url(${active.thumb})`
-                : 'linear-gradient(135deg,#6366f1,#a855f7)',
+                : 'linear-gradient(135deg, var(--dm-color-accent-primary), var(--dm-color-accent-primary-hover))',
               boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
             }}
           >
@@ -137,8 +161,39 @@ export function PlaylistView({
           </div>
 
           <div className="flex flex-col flex-1 min-w-0">
-            <h1 className="text-2xl font-bold text-white truncate">{active.name}</h1>
-            <div className="flex items-center gap-2 text-sm mt-1 mb-4" style={{ color: '#8892a8' }}>
+            {editingId === active.id ? (
+              <input
+                type="text"
+                autoFocus
+                value={editValue}
+                onChange={e => setEditValue(e.target.value)}
+                onBlur={() => handleRename(active.id, editValue || active.name)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleRename(active.id, editValue || active.name);
+                  if (e.key === 'Escape') setEditingId(null);
+                }}
+                className="text-2xl font-bold bg-transparent outline-none w-full"
+                style={{
+                  color: 'var(--dm-color-fg-primary)',
+                  borderBottom: '2px solid var(--dm-color-accent-primary)',
+                }}
+              />
+            ) : (
+              <h1
+                className="text-2xl font-bold truncate cursor-pointer transition-opacity"
+                style={{ color: 'var(--dm-color-fg-primary)' }}
+                onClick={() => {
+                  setEditingId(active.id);
+                  setEditValue(active.name);
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                title="Click to rename playlist"
+              >
+                {active.name}
+              </h1>
+            )}
+            <div className="flex items-center gap-2 text-sm mt-1 mb-4" style={{ color: 'var(--dm-color-fg-secondary)' }}>
               <span>{active.items.length} {active.items.length === 1 ? 'video' : 'videos'}</span>
               <span>•</span>
               <span>{completedCount} completed</span>
@@ -155,7 +210,7 @@ export function PlaylistView({
                     disabled={!firstCompleted}
                     className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm transition-all"
                     style={{
-                      background: firstCompleted ? '#6366f1' : 'rgba(99,102,241,0.3)',
+                      background: firstCompleted ? 'var(--dm-color-accent-primary)' : 'var(--dm-color-accent-subtle)',
                       color: 'white',
                       boxShadow: firstCompleted ? '0 4px 14px rgba(99,102,241,0.39)' : 'none',
                       cursor: firstCompleted ? 'pointer' : 'not-allowed',
@@ -172,7 +227,7 @@ export function PlaylistView({
                   if (c) onReveal(c.id);
                 }}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm"
-                style={{ background: 'rgba(255,255,255,0.05)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)' }}
+                style={{ background: 'var(--dm-color-bg-hover)', color: 'var(--dm-color-fg-primary)', border: '1px solid var(--dm-color-border-subtle)' }}
               >
                 📁 Open Folder
               </button>
@@ -181,18 +236,25 @@ export function PlaylistView({
         </div>
       )}
 
-      {/* Horizontal group strip */}
-      <div className="flex gap-3 overflow-x-auto pb-3 -mx-1 px-1">
+      {/* Horizontal group strip — shrink-0 on container AND children so the
+          video table below can't compress this row, and the cards keep their
+          intrinsic 210px width inside the horizontal-scroll container. */}
+      <div
+        className="flex gap-3 overflow-x-auto pb-3 -mx-1 px-1 shrink-0"
+        style={{ scrollbarWidth: 'thin' }}
+      >
         {groups.map(g => {
           const isActive = effectiveActive === g.id;
           return (
             <button
               key={g.id}
               onClick={() => onActiveGroupChange(g.id)}
-              className="flex items-center gap-3 p-2 rounded-2xl min-w-[210px] text-left transition-all"
+              className="flex items-center gap-3 p-2 rounded-2xl text-left transition-all shrink-0"
               style={{
-                background: isActive ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.02)',
-                border: isActive ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.05)',
+                width: 220,
+                minHeight: 76,
+                background: isActive ? 'var(--dm-color-accent-subtle)' : 'var(--dm-color-bg-hover)',
+                border: isActive ? '1px solid var(--dm-color-accent-primary)' : '1px solid var(--dm-color-border-subtle)',
               }}
             >
               <div
@@ -200,15 +262,15 @@ export function PlaylistView({
                 style={{
                   background: g.thumb
                     ? `center / cover no-repeat url(${g.thumb})`
-                    : 'linear-gradient(135deg,#6366f1,#a855f7)',
+                    : 'linear-gradient(135deg, var(--dm-color-accent-primary), var(--dm-color-accent-primary-hover))',
                 }}
               />
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-semibold text-white truncate">{g.name}</span>
-                <span className="text-[11px] mt-0.5" style={{ color: '#8892a8' }}>
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-sm font-semibold truncate" style={{ color: 'var(--dm-color-fg-primary)' }}>{g.name}</span>
+                <span className="text-[11px] mt-0.5" style={{ color: 'var(--dm-color-fg-secondary)' }}>
                   {g.items.length} {g.items.length === 1 ? 'video' : 'videos'}
                 </span>
-                <span className="text-[11px]" style={{ color: '#505a6e' }}>
+                <span className="text-[11px]" style={{ color: 'var(--dm-color-fg-tertiary)' }}>
                   {formatBytes(totalBytes(g.items))}
                 </span>
               </div>
@@ -221,7 +283,7 @@ export function PlaylistView({
       <div className="flex flex-col">
         <div
           className="flex items-center px-4 py-2 text-xs font-semibold mb-1"
-          style={{ color: '#505a6e', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+          style={{ color: 'var(--dm-color-fg-tertiary)', borderBottom: '1px solid var(--dm-color-border-subtle)' }}
         >
           <div className="w-8">#</div>
           <div className="flex-1">TITLE</div>
@@ -250,7 +312,7 @@ export function PlaylistView({
             />
           ))
         ) : (
-          <div className="flex items-center justify-center py-12 text-sm" style={{ color: '#505a6e' }}>
+          <div className="flex items-center justify-center py-12 text-sm" style={{ color: 'var(--dm-color-fg-tertiary)' }}>
             Nothing in this group yet.
           </div>
         )}
