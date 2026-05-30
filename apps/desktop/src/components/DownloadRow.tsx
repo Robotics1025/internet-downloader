@@ -15,8 +15,14 @@ interface DownloadRowProps {
   onSelect: (id: string) => void;
   isSelected: boolean;
   actionLoading: boolean;
-  variant?: 'list' | 'playlist';
+  variant?: 'list' | 'playlist' | 'grid';
   index?: number;
+  /** Playlists the user can move this item into. Optional — when omitted the
+   *  context menu doesn't show the "Move to playlist..." submenu. */
+  playlistOptions?: { id: string; name: string }[];
+  /** Called with (downloadId, targetPlaylistId) when the user picks an entry
+   *  from the Move to submenu. */
+  onMoveToPlaylist?: (downloadId: string, targetPlaylistId: string) => void;
 }
 
 // ── Inline SVG icons (no lucide-react dependency) ──────────────────────────
@@ -100,13 +106,16 @@ function FileThumbnail({
   status,
   url,
   category,
+  variant = 'list',
 }: {
   filename: string;
   status: DownloadStatus;
   url: string;
   category: string;
+  variant?: 'list' | 'playlist' | 'grid';
 }) {
   const ext = fileExtLabel(filename);
+  const isGrid = variant === 'grid';
   const isVideo =
     category === 'video' ||
     ext === 'MP4' ||
@@ -127,8 +136,8 @@ function FileThumbnail({
   const thumbnailStyle: React.CSSProperties = {
     position: 'relative',
     flexShrink: 0,
-    width: '96px',
-    height: '54px',
+    width: isGrid ? '100%' : '96px',
+    height: isGrid ? '110px' : '54px',
     borderRadius: 'var(--dm-radius-md)',
     overflow: 'hidden',
     background: 'var(--dm-color-bg-recessed)',
@@ -149,32 +158,10 @@ function FileThumbnail({
           />
         ) : (
           <div style={{ color: 'var(--dm-color-fg-tertiary)' }}>
-            <IcoVideo size={20} />
+            <IcoVideo size={isGrid ? 32 : 20} />
           </div>
         )}
-        {/* Duration pill */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '4px',
-            right: '4px',
-            padding: '1px 4px',
-            borderRadius: 'var(--dm-radius-sm)',
-            background: 'rgba(13,14,18,0.70)',
-            backdropFilter: 'blur(4px)',
-            color: 'var(--dm-color-fg-primary)',
-            fontSize: '9px',
-            fontWeight: 'var(--dm-weight-medium)',
-            fontVariantNumeric: 'tabular-nums',
-            lineHeight: 1.4,
-          }}
-        >
-          {filename.toLowerCase().includes('documentary')
-            ? '52:11'
-            : filename.toLowerCase().includes('timelapse')
-            ? '12:45'
-            : '43:27'}
-        </div>
+        {/* No fake duration — real duration would come from the API */}
         {isCompleted && (
           <div
             style={{
@@ -200,33 +187,44 @@ function FileThumbnail({
   }
 
   // Non-video: icon-based tile
+  function IcoMusic({ size = 16 }: { size?: number }) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 13V4l7-2v9" />
+        <circle cx="4.5" cy="13" r="1.5" />
+        <circle cx="11.5" cy="11" r="1.5" />
+      </svg>
+    );
+  }
   const iconMap: Record<string, React.ReactElement> = {
-    MP3: <IcoVideo size={20} />,
-    AAC: <IcoVideo size={20} />,
-    FLAC: <IcoVideo size={20} />,
-    WAV: <IcoVideo size={20} />,
-    ZIP: <IcoFolder size={20} />,
-    RAR: <IcoFolder size={20} />,
-    '7Z': <IcoFolder size={20} />,
-    TAR: <IcoFolder size={20} />,
-    PDF: <IcoExternalLink size={20} />,
-    EXE: <IcoPlay size={20} />,
-    DEB: <IcoPlay size={20} />,
-    DMG: <IcoPlay size={20} />,
+    MP3: <IcoMusic size={isGrid ? 32 : 20} />,
+    AAC: <IcoMusic size={isGrid ? 32 : 20} />,
+    FLAC: <IcoMusic size={isGrid ? 32 : 20} />,
+    WAV: <IcoMusic size={isGrid ? 32 : 20} />,
+    OGG: <IcoMusic size={isGrid ? 32 : 20} />,
+    M4A: <IcoMusic size={isGrid ? 32 : 20} />,
+    ZIP: <IcoFolder size={isGrid ? 32 : 20} />,
+    RAR: <IcoFolder size={isGrid ? 32 : 20} />,
+    '7Z': <IcoFolder size={isGrid ? 32 : 20} />,
+    TAR: <IcoFolder size={isGrid ? 32 : 20} />,
+    PDF: <IcoExternalLink size={isGrid ? 32 : 20} />,
+    EXE: <IcoPlay size={isGrid ? 32 : 20} />,
+    DEB: <IcoPlay size={isGrid ? 32 : 20} />,
+    DMG: <IcoPlay size={isGrid ? 32 : 20} />,
   };
-  const icon = iconMap[ext] ?? <IcoFolder size={20} />;
+  const icon = iconMap[ext] ?? <IcoFolder size={isGrid ? 32 : 20} />;
 
   return (
-    <div style={{ ...thumbnailStyle, width: '54px' }}>
+    <div style={{ ...thumbnailStyle, width: isGrid ? '100%' : '54px' }}>
       <div style={{ color: 'var(--dm-color-fg-tertiary)' }}>{icon}</div>
       <div
         style={{
           position: 'absolute',
-          bottom: '3px',
+          bottom: isGrid ? '8px' : '3px',
           left: 0,
           right: 0,
           textAlign: 'center',
-          fontSize: '8px',
+          fontSize: isGrid ? '10px' : '8px',
           fontWeight: 'var(--dm-weight-semibold)',
           color: 'var(--dm-color-fg-tertiary)',
           letterSpacing: '0.04em',
@@ -253,6 +251,8 @@ function ContextMenu({
   onRetry,
   onDelete,
   onClose,
+  playlistOptions,
+  onMoveToPlaylist,
 }: {
   open: boolean;
   isCompleted: boolean;
@@ -266,8 +266,11 @@ function ContextMenu({
   onRetry?: () => void;
   onDelete: () => void;
   onClose: () => void;
+  playlistOptions?: { id: string; name: string }[];
+  onMoveToPlaylist?: (targetPlaylistId: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [showMoveSubmenu, setShowMoveSubmenu] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -374,6 +377,48 @@ function ContextMenu({
       {isFailed && onRetry && (
         <MenuItem icon={<IcoRetry />} label="Retry" onClick={onRetry} />
       )}
+      {playlistOptions && onMoveToPlaylist && playlistOptions.length > 0 && (
+        <>
+          <Divider />
+          <div style={{ position: 'relative' }}
+               onMouseEnter={() => setShowMoveSubmenu(true)}
+               onMouseLeave={() => setShowMoveSubmenu(false)}>
+            <MenuItem
+              icon={<IcoFolder />}
+              label="Move to playlist ▸"
+              onClick={() => setShowMoveSubmenu(s => !s)}
+            />
+            {showMoveSubmenu && (
+              <div
+                style={{
+                  position: 'absolute',
+                  right: '100%',
+                  top: 0,
+                  marginRight: '4px',
+                  minWidth: '180px',
+                  maxHeight: '260px',
+                  overflowY: 'auto',
+                  borderRadius: 'var(--dm-radius-md)',
+                  background: 'var(--dm-color-bg-elevated)',
+                  border: '1px solid var(--dm-color-border-default)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+                  padding: '4px',
+                  zIndex: 110,
+                }}
+              >
+                {playlistOptions.map(opt => (
+                  <MenuItem
+                    key={opt.id}
+                    icon={<IcoFolder />}
+                    label={opt.name}
+                    onClick={() => { onMoveToPlaylist(opt.id); onClose(); }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
       <Divider />
       <MenuItem icon={<IcoTrash />} label="Delete" danger onClick={onDelete} />
     </div>
@@ -394,6 +439,8 @@ export function DownloadRow({
   actionLoading,
   variant,
   index,
+  playlistOptions,
+  onMoveToPlaylist,
 }: DownloadRowProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -413,7 +460,22 @@ export function DownloadRow({
   const canStart = download.status === 'pending' || download.status === 'failed';
 
   const ext = fileExtLabel(download.file_name);
-  const resolution = download.file_name.toLowerCase().includes('4k') ? '4K' : '1080p';
+  const isVideo =
+    download.category === 'video' ||
+    ['MP4', 'MKV', 'WEBM', 'AVI', 'MOV'].includes(ext);
+  const isAudio =
+    download.category === 'audio' ||
+    ['MP3', 'AAC', 'FLAC', 'WAV', 'OGG', 'M4A'].includes(ext);
+  const isMedia = isVideo || isAudio;
+
+  const fileNameSafe = (download.file_name || '').toLowerCase();
+  const resolution = fileNameSafe.includes('4k') || fileNameSafe.includes('2160')
+    ? '4K'
+    : fileNameSafe.includes('1080')
+    ? '1080p'
+    : fileNameSafe.includes('720')
+    ? '720p'
+    : null;
 
   // ── Playlist variant ──────────────────────────────────────────────────────
   if (variant === 'playlist') {
@@ -430,6 +492,7 @@ export function DownloadRow({
           transition: `background var(--dm-duration-fast) var(--dm-easing-standard)`,
         }}
         onClick={() => onSelect(download.id)}
+        onDoubleClick={(e) => { e.preventDefault(); if (isCompleted) onPlay(download.id); }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => { setIsHovered(false); setMenuOpen(false); }}
       >
@@ -481,9 +544,11 @@ export function DownloadRow({
 
         {/* Format badges */}
         <div style={{ width: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-          <span style={{ padding: '1px 5px', borderRadius: 'var(--dm-radius-sm)', fontSize: '10px', fontWeight: 'var(--dm-weight-semibold)', color: 'var(--dm-color-status-danger-text)', background: 'var(--dm-color-status-danger-surface)' }}>
-            {resolution}
-          </span>
+          {resolution && (
+            <span style={{ padding: '1px 5px', borderRadius: 'var(--dm-radius-sm)', fontSize: '10px', fontWeight: 'var(--dm-weight-semibold)', color: 'var(--dm-color-status-danger-text)', background: 'var(--dm-color-status-danger-surface)' }}>
+              {resolution}
+            </span>
+          )}
           <span style={{ padding: '1px 5px', borderRadius: 'var(--dm-radius-sm)', fontSize: '10px', fontWeight: 'var(--dm-weight-semibold)', color: 'var(--dm-color-fg-secondary)', background: 'var(--dm-color-bg-recessed)' }}>
             {ext || 'MP4'}
           </span>
@@ -534,7 +599,204 @@ export function DownloadRow({
             onRetry={isFailed ? () => { onStart(download.id); setMenuOpen(false); } : undefined}
             onDelete={() => { onDelete(download.id); setMenuOpen(false); }}
             onClose={() => setMenuOpen(false)}
+            playlistOptions={playlistOptions}
+            onMoveToPlaylist={
+              onMoveToPlaylist
+                ? (targetId) => { onMoveToPlaylist(download.id, targetId); setMenuOpen(false); }
+                : undefined
+            }
           />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Grid variant ─────────────────────────────────────────────────────────
+  if (variant === 'grid') {
+    return (
+      <div
+        id={`download-row-${download.id}`}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '12px',
+          cursor: 'pointer',
+          background: isSelected
+            ? 'var(--dm-color-bg-selected)'
+            : isHovered
+            ? 'var(--dm-color-bg-elevated)'
+            : 'var(--dm-color-bg-app)',
+          borderLeft: isSelected
+            ? '2px solid var(--dm-color-accent-primary)'
+            : '2px solid transparent',
+          border: isSelected
+            ? '1.5px solid var(--dm-color-accent-primary)'
+            : '1.5px solid var(--dm-color-border-subtle)',
+          borderRadius: 'var(--dm-radius-lg)',
+          transition: 'all var(--dm-duration-fast) var(--dm-easing-standard)',
+          position: 'relative',
+          minHeight: '230px',
+          boxSizing: 'border-box',
+          boxShadow: isHovered ? '0 8px 24px rgba(0,0,0,0.15)' : 'none',
+          gap: '8px',
+        }}
+        onClick={() => onSelect(download.id)}
+        onDoubleClick={(e) => { e.preventDefault(); if (isCompleted) onPlay(download.id); }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => { setIsHovered(false); setMenuOpen(false); }}
+        onContextMenu={(e) => { e.preventDefault(); setMenuOpen(true); }}
+      >
+        {/* Thumbnail */}
+        <FileThumbnail
+          filename={download.file_name}
+          status={status}
+          url={download.url}
+          category={download.category}
+          variant="grid"
+        />
+
+        {/* Content Container */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: 0 }}>
+          {/* Title */}
+          <p
+            style={{
+              margin: 0,
+              fontSize: 'var(--dm-text-sm)',
+              fontWeight: 'var(--dm-weight-semibold)',
+              color: 'var(--dm-color-fg-primary)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              lineHeight: 'var(--dm-leading-tight)',
+            }}
+            title={download.file_name}
+          >
+            {download.file_name}
+          </p>
+
+          {/* Meta line */}
+          <p
+            style={{
+              margin: 0,
+              fontSize: 'var(--dm-text-xs)',
+              color: isHovered ? 'var(--dm-color-fg-secondary)' : 'var(--dm-color-fg-tertiary)',
+              fontVariantNumeric: 'tabular-nums',
+              lineHeight: 'var(--dm-leading-tight)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              transition: `color var(--dm-duration-fast)`,
+            }}
+          >
+            {resolution ? `${resolution} · ` : ''}
+            {ext ? `${ext} · ` : ''}
+            {formatBytes(downloaded)}
+            {total ? ` / ${formatBytes(total)}` : ''}
+          </p>
+
+          {/* Progress bar */}
+          <div style={{ marginTop: 'auto', paddingTop: '4px' }}>
+            <ProgressBar percent={isCompleted ? 100 : percent} status={status} height={4} />
+          </div>
+        </div>
+
+        {/* Footer Area */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: '4px',
+            borderTop: '1px solid var(--dm-color-border-subtle)',
+            paddingTop: '8px',
+          }}
+        >
+          {/* Status/percent */}
+          <div>
+            {isActive && percent !== null ? (
+              <span
+                style={{
+                  fontSize: 'var(--dm-text-xs)',
+                  fontWeight: 'var(--dm-weight-semibold)',
+                  color: 'var(--dm-color-accent-primary)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {Math.round(percent)}%
+              </span>
+            ) : (
+              <StatusBadge status={status} />
+            )}
+          </div>
+
+          {/* Action buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+            {/* Pause (when active) */}
+            {isActive && (
+              <ActionButton
+                aria-label="Pause download"
+                onClick={(e) => { e.stopPropagation(); }}
+              >
+                <IcoPause size={13} />
+              </ActionButton>
+            )}
+
+            {/* Play/Open (when completed) */}
+            {isCompleted && (
+              <ActionButton
+                aria-label={isMedia ? "Play file" : "Open file"}
+                onClick={(e) => { e.stopPropagation(); onPlay(download.id); }}
+              >
+                {isMedia ? <IcoPlay size={13} /> : <IcoExternalLink size={13} />}
+              </ActionButton>
+            )}
+
+            {/* Open folder (when completed) */}
+            {isCompleted && (
+              <ActionButton
+                aria-label="Open folder"
+                onClick={(e) => { e.stopPropagation(); onReveal(download.id); }}
+              >
+                <IcoFolder size={13} />
+              </ActionButton>
+            )}
+
+            {/* Resume/retry */}
+            {(isPaused || canStart) && (
+              <ActionButton
+                aria-label={isFailed ? 'Retry download' : 'Resume download'}
+                disabled={actionLoading}
+                onClick={(e) => { e.stopPropagation(); onStart(download.id); }}
+              >
+                {isFailed ? <IcoRetry size={13} /> : <IcoPlay size={13} />}
+              </ActionButton>
+            )}
+
+            {/* 3-dot menu */}
+            <div style={{ position: 'relative' }}>
+              <ActionButton
+                aria-label="More options"
+                active={menuOpen}
+                onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+              >
+                <IcoMoreVert size={13} />
+              </ActionButton>
+              <ContextMenu
+                open={menuOpen}
+                isCompleted={isCompleted}
+                isActive={isActive}
+                isPaused={isPaused}
+                isFailed={isFailed}
+                onOpen={isCompleted ? () => { onPlay(download.id); setMenuOpen(false); } : undefined}
+                onReveal={() => { onReveal(download.id); setMenuOpen(false); }}
+                onCopyUrl={() => { navigator.clipboard.writeText(download.url).catch(() => {}); setMenuOpen(false); }}
+                onPauseResume={(isActive || isPaused) ? () => { onStart(download.id); setMenuOpen(false); } : undefined}
+                onRetry={isFailed ? () => { onStart(download.id); setMenuOpen(false); } : undefined}
+                onDelete={() => { onDelete(download.id); setMenuOpen(false); }}
+                onClose={() => setMenuOpen(false)}
+              />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -565,6 +827,7 @@ export function DownloadRow({
         boxSizing: 'border-box',
       }}
       onClick={() => onSelect(download.id)}
+      onDoubleClick={(e) => { e.preventDefault(); if (isCompleted) onPlay(download.id); }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => { setIsHovered(false); setMenuOpen(false); }}
       onContextMenu={(e) => { e.preventDefault(); setMenuOpen(true); }}
@@ -610,9 +873,8 @@ export function DownloadRow({
             transition: `color var(--dm-duration-fast)`,
           }}
         >
-          {resolution}
-          {ext ? ` · ${ext}` : ''}
-          {' · '}
+          {resolution ? `${resolution} · ` : ''}
+          {ext ? `${ext} · ` : ''}
           {formatBytes(downloaded)}
           {total ? ` / ${formatBytes(total)}` : ''}
           {isActive && speed > 0 ? ` · ${formatSpeed(speed)}` : ''}
@@ -664,13 +926,13 @@ export function DownloadRow({
             </ActionButton>
           )}
 
-          {/* Play (when completed) */}
+          {/* Play/Open (when completed) */}
           {isCompleted && (
             <ActionButton
-              aria-label="Play file"
+              aria-label={isMedia ? "Play file" : "Open file"}
               onClick={(e) => { e.stopPropagation(); onPlay(download.id); }}
             >
-              <IcoPlay size={14} />
+              {isMedia ? <IcoPlay size={14} /> : <IcoExternalLink size={14} />}
             </ActionButton>
           )}
 

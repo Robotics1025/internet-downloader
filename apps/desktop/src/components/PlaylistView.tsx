@@ -95,6 +95,15 @@ export function PlaylistView({
       return {};
     }
   });
+  // Per-download playlist override: downloadId → targetGroupId. Lets the user
+  // drag/menu items from one playlist into another without moving files on disk.
+  const [customAssignments, setCustomAssignments] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('dm_playlist_assignments') || '{}');
+    } catch {
+      return {};
+    }
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
 
@@ -103,8 +112,23 @@ export function PlaylistView({
     for (const g of gs) {
       if (customNames[g.id]) g.name = customNames[g.id];
     }
+    // Apply custom assignments — move items between groups per localStorage.
+    if (Object.keys(customAssignments).length > 0) {
+      const byId = new Map(gs.map(g => [g.id, g] as const));
+      for (const g of gs) {
+        g.items = g.items.filter(item => {
+          const target = customAssignments[item.id];
+          if (!target || target === g.id) return true;
+          const dest = byId.get(target);
+          if (!dest) return true;  // target playlist no longer exists; keep original
+          dest.items.push(item);
+          if (!dest.thumb) dest.thumb = g.thumb;
+          return false;
+        });
+      }
+    }
     return gs;
-  }, [downloads, customNames]);
+  }, [downloads, customNames, customAssignments]);
 
   const handleRename = (id: string, newName: string) => {
     const updated = { ...customNames, [id]: newName.trim() };
@@ -112,6 +136,12 @@ export function PlaylistView({
     setCustomNames(updated);
     localStorage.setItem('dm_playlist_names', JSON.stringify(updated));
     setEditingId(null);
+  };
+
+  const handleMoveToPlaylist = (downloadId: string, targetGroupId: string) => {
+    const updated = { ...customAssignments, [downloadId]: targetGroupId };
+    setCustomAssignments(updated);
+    localStorage.setItem('dm_playlist_assignments', JSON.stringify(updated));
   };
 
   // Default-select the first group when one becomes available.
@@ -309,6 +339,10 @@ export function PlaylistView({
               actionLoading={actioning[d.id] || false}
               index={index + 1}
               variant="playlist"
+              playlistOptions={groups
+                .filter(g => g.id !== (effectiveActive ?? ''))
+                .map(g => ({ id: g.id, name: g.name }))}
+              onMoveToPlaylist={handleMoveToPlaylist}
             />
           ))
         ) : (
