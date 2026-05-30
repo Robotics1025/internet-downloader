@@ -1,48 +1,104 @@
 import type { DownloadStatus } from '../types';
-import { statusColor, statusLabel } from '../utils';
 
 interface StatusBadgeProps {
   status: DownloadStatus;
 }
 
+const pulseKeyframes = `
+@keyframes dm-badge-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+`;
+
+const STATUS_CONFIG: Record<
+  DownloadStatus,
+  { bg: string; fg: string; label: string; dot?: boolean }
+> = {
+  pending: {
+    bg: 'var(--dm-color-status-info-surface)',
+    fg: 'var(--dm-color-status-info-text)',
+    label: 'Pending',
+  },
+  queued: {
+    bg: 'var(--dm-color-bg-recessed)',
+    fg: 'var(--dm-color-fg-tertiary)',
+    label: 'Queued',
+  },
+  downloading: {
+    bg: 'var(--dm-color-status-info-surface)',
+    fg: 'var(--dm-color-status-info-text)',
+    label: 'Active',
+    dot: true,
+  },
+  paused: {
+    bg: 'var(--dm-color-status-warning-surface)',
+    fg: 'var(--dm-color-status-warning-text)',
+    label: 'Paused',
+  },
+  merging: {
+    bg: 'var(--dm-color-status-info-surface)',
+    fg: 'var(--dm-color-status-info-text)',
+    label: 'Merging',
+    dot: true,
+  },
+  completed: {
+    bg: 'var(--dm-color-status-success-surface)',
+    fg: 'var(--dm-color-status-success-text)',
+    label: 'Done',
+  },
+  failed: {
+    bg: 'var(--dm-color-status-danger-surface)',
+    fg: 'var(--dm-color-status-danger-text)',
+    label: 'Failed',
+  },
+  cancelled: {
+    bg: 'var(--dm-color-bg-recessed)',
+    fg: 'var(--dm-color-fg-tertiary)',
+    label: 'Cancelled',
+  },
+};
+
 export function StatusBadge({ status }: StatusBadgeProps) {
-  const color = statusColor(status);
-  const isActive = status === 'downloading';
-  const isPaused = status === 'paused';
-  const isFailed = status === 'failed';
-  const isCompleted = status === 'completed';
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
 
   return (
-    <span
-      className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
-      style={{
-        background: `${color}15`,
-        color,
-        border: `1px solid ${color}20`,
-      }}
-    >
-      {isCompleted ? (
-        <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-          <circle cx="6" cy="6" r="5" stroke={color} strokeWidth="1.5" fill={`${color}30`} />
-          <path d="M4 6l1.5 1.5L8 5" stroke={color} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      ) : isFailed ? (
-        <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-          <circle cx="6" cy="6" r="5" stroke={color} strokeWidth="1.5" fill={`${color}30`} />
-          <path d="M4.5 4.5l3 3M7.5 4.5l-3 3" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
-        </svg>
-      ) : isPaused ? (
-        <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-          <rect x="3.5" y="3" width="1.8" height="6" rx="0.5" fill={color} />
-          <rect x="6.8" y="3" width="1.8" height="6" rx="0.5" fill={color} />
-        </svg>
-      ) : (
-        <span
-          className={`w-[6px] h-[6px] rounded-full ${isActive ? 'animate-pulse' : ''}`}
-          style={{ background: color }}
-        />
-      )}
-      {statusLabel(status)}
-    </span>
+    <>
+      <style>{pulseKeyframes}</style>
+      <span
+        role="status"
+        aria-label={`Status: ${cfg.label}`}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '5px',
+          padding: '2px 8px',
+          borderRadius: 'var(--dm-radius-full)',
+          background: cfg.bg,
+          color: cfg.fg,
+          fontSize: 'var(--dm-text-xs)',
+          fontWeight: 'var(--dm-weight-medium)',
+          lineHeight: 'var(--dm-leading-tight)',
+          letterSpacing: 'var(--dm-tracking-wide)',
+          textTransform: 'uppercase',
+          whiteSpace: 'nowrap',
+          userSelect: 'none',
+        }}
+      >
+        {cfg.dot && (
+          <span
+            style={{
+              width: '5px',
+              height: '5px',
+              borderRadius: '50%',
+              background: cfg.fg,
+              flexShrink: 0,
+              animation: 'dm-badge-pulse 1.4s ease-in-out infinite',
+            }}
+          />
+        )}
+        {cfg.label}
+      </span>
+    </>
   );
 }

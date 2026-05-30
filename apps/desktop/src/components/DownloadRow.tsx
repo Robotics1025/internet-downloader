@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { Download, ProgressSnapshot } from '../types';
 import { ProgressBar } from './ProgressBar';
-import { formatBytes, formatSpeed, formatEta, fileTypeGradient, fileExtLabel, statusColor } from '../utils';
+import { StatusBadge } from './StatusBadge';
+import { formatBytes, formatSpeed, formatEta, fileExtLabel } from '../utils';
 import type { DownloadStatus } from '../types';
 
 interface DownloadRowProps {
@@ -18,104 +19,381 @@ interface DownloadRowProps {
   index?: number;
 }
 
-function FileThumbnail({ filename, status, url, category }: { filename: string; status: DownloadStatus; url: string; category: string }) {
-  const [g1, g2] = fileTypeGradient(filename);
-  const ext = fileExtLabel(filename);
-  const isCompleted = status === 'completed';
-  const isVideo = category === 'video' || ext === 'MP4' || ext === 'MKV' || ext === 'WEBM';
+// ── Inline SVG icons (no lucide-react dependency) ──────────────────────────
 
-  const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
-  const ytThumb = ytMatch ? `https://img.youtube.com/vi/${ytMatch[1]}/mqdefault.jpg` : null;
+function IcoVideo({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="4" width="10" height="8" rx="1.5" />
+      <path d="M11 7l4-2v6l-4-2V7z" />
+    </svg>
+  );
+}
+function IcoPlay({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
+      <polygon points="5,3 13,8 5,13" />
+    </svg>
+  );
+}
+function IcoPause({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
+      <rect x="3.5" y="2.5" width="3" height="11" rx="1" />
+      <rect x="9.5" y="2.5" width="3" height="11" rx="1" />
+    </svg>
+  );
+}
+function IcoFolder({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 5a1 1 0 011-1h3.5l1.5 1.5H13a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1V5z" />
+    </svg>
+  );
+}
+function IcoRetry({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2.5 8a5.5 5.5 0 119.5-3.8" />
+      <path d="M10 2l2 2.2-2 2" />
+    </svg>
+  );
+}
+function IcoMoreVert({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
+      <circle cx="8" cy="3.5" r="1.3" />
+      <circle cx="8" cy="8" r="1.3" />
+      <circle cx="8" cy="12.5" r="1.3" />
+    </svg>
+  );
+}
+function IcoExternalLink({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 3H3a1 1 0 00-1 1v9a1 1 0 001 1h9a1 1 0 001-1V9" />
+      <path d="M10 2h4v4" />
+      <path d="M14 2L8 8" />
+    </svg>
+  );
+}
+function IcoCopy({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="5" width="8" height="8" rx="1" />
+      <path d="M3 11V3h8" />
+    </svg>
+  );
+}
+function IcoTrash({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 5h10M6 5V3h4v2M5 5l.5 8h5l.5-8" />
+    </svg>
+  );
+}
+
+// ── Thumbnail component ────────────────────────────────────────────────────
+
+function FileThumbnail({
+  filename,
+  status,
+  url,
+  category,
+}: {
+  filename: string;
+  status: DownloadStatus;
+  url: string;
+  category: string;
+}) {
+  const ext = fileExtLabel(filename);
+  const isVideo =
+    category === 'video' ||
+    ext === 'MP4' ||
+    ext === 'MKV' ||
+    ext === 'WEBM' ||
+    ext === 'AVI' ||
+    ext === 'MOV';
+
+  const ytMatch = url.match(
+    /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/,
+  );
+  const ytThumb = ytMatch
+    ? `https://img.youtube.com/vi/${ytMatch[1]}/mqdefault.jpg`
+    : null;
+
+  const isCompleted = status === 'completed';
+
+  const thumbnailStyle: React.CSSProperties = {
+    position: 'relative',
+    flexShrink: 0,
+    width: '96px',
+    height: '54px',
+    borderRadius: 'var(--dm-radius-md)',
+    overflow: 'hidden',
+    background: 'var(--dm-color-bg-recessed)',
+    border: '1px solid var(--dm-color-border-subtle)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
 
   if (isVideo) {
     return (
-      <div className="relative shrink-0 w-[96px] h-[54px] rounded-lg overflow-hidden flex items-center justify-center transition-all border" style={{ borderColor: 'rgba(255,255,255,0.06)', background: '#0a0e1a' }}>
+      <div style={thumbnailStyle}>
         {ytThumb ? (
-          <img src={ytThumb} alt="" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+          <img
+            src={ytThumb}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }}
+          />
         ) : (
-          <div className="absolute inset-0 opacity-80" style={{ background: `linear-gradient(135deg, ${g1}40, ${g2}20)` }} />
+          <div style={{ color: 'var(--dm-color-fg-tertiary)' }}>
+            <IcoVideo size={20} />
+          </div>
         )}
-        
-        {/* Play icon overlay */}
-        {!ytThumb && <span className="absolute text-xl" style={{ color: 'rgba(255,255,255,0.3)' }}>▶</span>}
-
-        {/* Resolution badge */}
-        <div className="absolute bottom-1 left-1 px-1 py-[1px] rounded text-[8px] font-bold bg-black/70 text-white backdrop-blur-sm border border-white/10">
-          {filename.toLowerCase().includes('4k') ? '4K' : '1080p'}
+        {/* Duration pill */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '4px',
+            right: '4px',
+            padding: '1px 4px',
+            borderRadius: 'var(--dm-radius-sm)',
+            background: 'rgba(13,14,18,0.70)',
+            backdropFilter: 'blur(4px)',
+            color: 'var(--dm-color-fg-primary)',
+            fontSize: '9px',
+            fontWeight: 'var(--dm-weight-medium)',
+            fontVariantNumeric: 'tabular-nums',
+            lineHeight: 1.4,
+          }}
+        >
+          {filename.toLowerCase().includes('documentary')
+            ? '52:11'
+            : filename.toLowerCase().includes('timelapse')
+            ? '12:45'
+            : '43:27'}
         </div>
-
-        {/* Duration badge */}
-        <div className="absolute bottom-1 right-1 px-1 py-[1px] rounded text-[8px] font-medium bg-black/70 text-white backdrop-blur-sm">
-          {filename.toLowerCase().includes('documentary') ? '52:11' : filename.toLowerCase().includes('timelapse') ? '12:45' : '43:27'}
-        </div>
-
         {isCompleted && (
           <div
-            className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[8px] z-10"
             style={{
-              background: '#22c55e',
-              border: '2px solid #0f1423',
-              color: 'white',
+              position: 'absolute',
+              top: '4px',
+              left: '4px',
+              width: '14px',
+              height: '14px',
+              borderRadius: '50%',
+              background: 'var(--dm-color-status-success-text)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            ✓
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1.5 4l2 2 3-3" />
+            </svg>
           </div>
         )}
       </div>
     );
   }
 
+  // Non-video: icon-based tile
+  const iconMap: Record<string, React.ReactElement> = {
+    MP3: <IcoVideo size={20} />,
+    AAC: <IcoVideo size={20} />,
+    FLAC: <IcoVideo size={20} />,
+    WAV: <IcoVideo size={20} />,
+    ZIP: <IcoFolder size={20} />,
+    RAR: <IcoFolder size={20} />,
+    '7Z': <IcoFolder size={20} />,
+    TAR: <IcoFolder size={20} />,
+    PDF: <IcoExternalLink size={20} />,
+    EXE: <IcoPlay size={20} />,
+    DEB: <IcoPlay size={20} />,
+    DMG: <IcoPlay size={20} />,
+  };
+  const icon = iconMap[ext] ?? <IcoFolder size={20} />;
+
   return (
-    <div className="relative shrink-0">
+    <div style={{ ...thumbnailStyle, width: '54px' }}>
+      <div style={{ color: 'var(--dm-color-fg-tertiary)' }}>{icon}</div>
       <div
-        className="w-[52px] h-[52px] rounded-xl flex items-center justify-center text-white text-sm font-bold relative overflow-hidden"
         style={{
-          background: `linear-gradient(135deg, ${g1}30, ${g2}15)`,
-          border: `1px solid ${g1}25`,
+          position: 'absolute',
+          bottom: '3px',
+          left: 0,
+          right: 0,
+          textAlign: 'center',
+          fontSize: '8px',
+          fontWeight: 'var(--dm-weight-semibold)',
+          color: 'var(--dm-color-fg-tertiary)',
+          letterSpacing: '0.04em',
         }}
       >
-        {/* Background icon */}
-        <div
-          className="absolute inset-0 flex items-center justify-center text-2xl opacity-20"
-          style={{ color: g1 }}
-        >
-          {ext === 'MP4' || ext === 'MKV' || ext === 'AVI' || ext === 'MOV' || ext === 'WEBM' ? '▶' :
-           ext === 'MP3' || ext === 'AAC' || ext === 'FLAC' || ext === 'WAV' ? '♪' :
-           ext === 'ZIP' || ext === 'RAR' || ext === '7Z' || ext === 'TAR' ? '⧈' :
-           ext === 'PDF' || ext === 'DOC' || ext === 'TXT' ? '📄' :
-           ext === 'EXE' || ext === 'MSI' || ext === 'DEB' || ext === 'DMG' ? '⚙' :
-           '📁'}
-        </div>
-        {/* Extension label */}
-        <span
-          className="relative z-10 text-[10px] font-bold px-1.5 py-0.5 rounded"
-          style={{
-            background: `${g1}40`,
-            color: g1,
-          }}
-        >
-          {ext}
-        </span>
+        {ext}
       </div>
-      {/* Completed checkmark overlay */}
-      {isCompleted && (
-        <div
-          className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px]"
-          style={{
-            background: '#22c55e',
-            border: '2px solid #0f1423',
-            color: 'white',
-          }}
-        >
-          ✓
-        </div>
-      )}
     </div>
   );
 }
 
+// ── Context menu ───────────────────────────────────────────────────────────
+
+function ContextMenu({
+  open,
+  isCompleted,
+  isActive,
+  isPaused,
+  isFailed,
+  onOpen,
+  onReveal,
+  onCopyUrl,
+  onPauseResume,
+  onRetry,
+  onDelete,
+  onClose,
+}: {
+  open: boolean;
+  isCompleted: boolean;
+  isActive: boolean;
+  isPaused: boolean;
+  isFailed: boolean;
+  onOpen?: () => void;
+  onReveal: () => void;
+  onCopyUrl: () => void;
+  onPauseResume?: () => void;
+  onRetry?: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const menuItemStyle = (danger = false): React.CSSProperties => ({
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '5px 8px',
+    borderRadius: 'var(--dm-radius-sm)',
+    fontSize: 'var(--dm-text-sm)',
+    color: danger ? 'var(--dm-color-status-danger-text)' : 'var(--dm-color-fg-primary)',
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    textAlign: 'left' as const,
+    transition: `background var(--dm-duration-fast)`,
+    whiteSpace: 'nowrap' as const,
+  });
+
+  function MenuItem({
+    icon,
+    label,
+    danger,
+    onClick,
+  }: {
+    icon: React.ReactElement;
+    label: string;
+    danger?: boolean;
+    onClick: () => void;
+  }) {
+    const [hovered, setHovered] = useState(false);
+    return (
+      <button
+        style={{
+          ...menuItemStyle(danger),
+          background: hovered
+            ? danger
+              ? 'rgba(242,87,87,0.08)'
+              : 'var(--dm-color-bg-hover)'
+            : 'transparent',
+        }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onClick={(e) => { e.stopPropagation(); onClick(); }}
+      >
+        <span style={{ opacity: 0.7, display: 'flex' }}>{icon}</span>
+        {label}
+      </button>
+    );
+  }
+
+  function Divider() {
+    return (
+      <div
+        style={{
+          height: '1px',
+          background: 'var(--dm-color-border-subtle)',
+          margin: '3px 0',
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: 'absolute',
+        right: 0,
+        top: '100%',
+        marginTop: '4px',
+        minWidth: '148px',
+        borderRadius: 'var(--dm-radius-md)',
+        background: 'var(--dm-color-bg-elevated)',
+        border: '1px solid var(--dm-color-border-default)',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+        padding: '4px',
+        zIndex: 100,
+      }}
+    >
+      {isCompleted && onOpen && (
+        <MenuItem icon={<IcoExternalLink />} label="Open" onClick={onOpen} />
+      )}
+      <MenuItem icon={<IcoFolder />} label="Open Folder" onClick={onReveal} />
+      <MenuItem icon={<IcoCopy />} label="Copy URL" onClick={onCopyUrl} />
+      <Divider />
+      {(isActive || isPaused) && onPauseResume && (
+        <MenuItem
+          icon={isActive ? <IcoPause /> : <IcoPlay />}
+          label={isActive ? 'Pause' : 'Resume'}
+          onClick={onPauseResume}
+        />
+      )}
+      {isFailed && onRetry && (
+        <MenuItem icon={<IcoRetry />} label="Retry" onClick={onRetry} />
+      )}
+      <Divider />
+      <MenuItem icon={<IcoTrash />} label="Delete" danger onClick={onDelete} />
+    </div>
+  );
+}
+
+// ── Main DownloadRow ───────────────────────────────────────────────────────
+
 export function DownloadRow({
-  download, progress, onStart, onDelete, onPlay, onReveal, onSelect, isSelected, actionLoading, variant, index
+  download,
+  progress,
+  onStart,
+  onDelete,
+  onPlay,
+  onReveal,
+  onSelect,
+  isSelected,
+  actionLoading,
+  variant,
+  index,
 }: DownloadRowProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -127,332 +405,366 @@ export function DownloadRow({
   const speed = snap?.speed_bps ?? 0;
   const eta = snap?.eta_seconds ?? null;
   const status = snap?.status ?? download.status;
-  const color = statusColor(status);
 
-  const canStart = download.status === 'pending' || download.status === 'failed';
-  const isActive = status === 'downloading';
+  const isActive = status === 'downloading' || status === 'merging';
   const isCompleted = status === 'completed';
   const isPaused = status === 'paused';
   const isFailed = status === 'failed';
+  const canStart = download.status === 'pending' || download.status === 'failed';
 
+  const ext = fileExtLabel(download.file_name);
+  const resolution = download.file_name.toLowerCase().includes('4k') ? '4K' : '1080p';
+
+  // ── Playlist variant ──────────────────────────────────────────────────────
   if (variant === 'playlist') {
-    const isCompleted = status === 'completed';
     return (
       <div
         id={`download-row-${download.id}`}
-        className="group flex items-center px-4 py-2 transition-all duration-200 cursor-pointer"
         style={{
-          background: isHovered ? 'rgba(255,255,255,0.03)' : 'transparent',
-          borderBottom: '1px solid rgba(255,255,255,0.02)',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '6px 16px',
+          cursor: 'pointer',
+          background: isHovered ? 'var(--dm-color-bg-hover)' : 'transparent',
+          borderBottom: '1px solid var(--dm-color-border-subtle)',
+          transition: `background var(--dm-duration-fast) var(--dm-easing-standard)`,
         }}
         onClick={() => onSelect(download.id)}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => { setIsHovered(false); setMenuOpen(false); }}
       >
         {/* Index */}
-        <div className="w-8 text-xs font-medium" style={{ color: '#505a6e' }}>
+        <div
+          style={{
+            width: '28px',
+            flexShrink: 0,
+            fontSize: 'var(--dm-text-xs)',
+            color: 'var(--dm-color-fg-tertiary)',
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
           {index}
         </div>
 
-        {/* Title & Thumbnail */}
-        <div className="flex-1 flex items-center gap-3 min-w-0 pr-4">
-          <FileThumbnail filename={download.file_name} status={status} url={download.url} category={download.category} />
-          <div className="flex flex-col min-w-0">
-            <span className="text-sm font-semibold text-white truncate">{download.file_name}</span>
-            <span className="text-xs truncate" style={{ color: '#8892a8' }}>{download.category === 'video' ? 'Rema' : 'Unknown'}</span>
+        {/* Thumbnail + title */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, paddingRight: '12px' }}>
+          <FileThumbnail
+            filename={download.file_name}
+            status={status}
+            url={download.url}
+            category={download.category}
+          />
+          <div style={{ minWidth: 0 }}>
+            <p
+              style={{
+                fontSize: 'var(--dm-text-sm)',
+                fontWeight: 'var(--dm-weight-medium)',
+                color: 'var(--dm-color-fg-primary)',
+                margin: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {download.file_name}
+            </p>
+            <p style={{ margin: 0, fontSize: 'var(--dm-text-xs)', color: 'var(--dm-color-fg-tertiary)' }}>
+              {download.category}
+            </p>
           </div>
         </div>
 
         {/* Duration */}
-        <div className="w-24 text-right text-xs" style={{ color: '#8892a8' }}>
+        <div style={{ width: '52px', textAlign: 'right', fontSize: 'var(--dm-text-xs)', color: 'var(--dm-color-fg-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
           03:59
         </div>
 
-        {/* Resolution */}
-        <div className="w-32 text-center flex items-center justify-center gap-2">
-           <span className="px-1.5 py-0.5 rounded text-[10px] font-bold border" style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}>
-             {download.file_name.toLowerCase().includes('4k') ? '4K' : '1080p'}
-           </span>
-           <span className="px-1.5 py-0.5 rounded text-[10px] font-bold border" style={{ color: '#e2e8f0', borderColor: 'rgba(255,255,255,0.1)' }}>
-             MP4
-           </span>
+        {/* Format badges */}
+        <div style={{ width: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+          <span style={{ padding: '1px 5px', borderRadius: 'var(--dm-radius-sm)', fontSize: '10px', fontWeight: 'var(--dm-weight-semibold)', color: 'var(--dm-color-status-danger-text)', background: 'var(--dm-color-status-danger-surface)' }}>
+            {resolution}
+          </span>
+          <span style={{ padding: '1px 5px', borderRadius: 'var(--dm-radius-sm)', fontSize: '10px', fontWeight: 'var(--dm-weight-semibold)', color: 'var(--dm-color-fg-secondary)', background: 'var(--dm-color-bg-recessed)' }}>
+            {ext || 'MP4'}
+          </span>
         </div>
 
         {/* Size */}
-        <div className="w-24 text-right text-xs" style={{ color: '#8892a8' }}>
+        <div style={{ width: '72px', textAlign: 'right', fontSize: 'var(--dm-text-xs)', color: 'var(--dm-color-fg-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
           {formatBytes(total || downloaded)}
         </div>
 
         {/* Status */}
-        <div className="w-32 text-center flex items-center justify-center gap-1.5">
-          <span className="text-xs font-semibold" style={{ color: isCompleted ? '#22c55e' : color }}>
-            {isCompleted ? 'Downloaded' : status.charAt(0).toUpperCase() + status.slice(1)}
-          </span>
-          {isCompleted && (
-             <div className="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center text-[10px] text-green-400">
-               ✓
-             </div>
-          )}
+        <div style={{ width: '96px', display: 'flex', justifyContent: 'flex-end' }}>
+          <StatusBadge status={status} />
         </div>
 
         {/* Actions */}
-        <div className="w-12 flex justify-end relative">
+        <div style={{ width: '32px', display: 'flex', justifyContent: 'flex-end', position: 'relative' }}>
           <button
+            aria-label="More options"
             onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#505a6e] hover:text-white transition-colors"
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: 'var(--dm-radius-sm)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: menuOpen ? 'var(--dm-color-bg-hover)' : 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--dm-color-fg-tertiary)',
+              transition: `color var(--dm-duration-fast), background var(--dm-duration-fast)`,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--dm-color-fg-primary)'; e.currentTarget.style.background = 'var(--dm-color-bg-hover)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--dm-color-fg-tertiary)'; if (!menuOpen) e.currentTarget.style.background = 'transparent'; }}
           >
-            ⋮
+            <IcoMoreVert size={15} />
           </button>
-          {menuOpen && (
-            <div
-              className="absolute right-0 top-full mt-1 w-32 rounded-lg py-1 z-50 animate-slide-down"
-              style={{
-                background: '#13192b',
-                border: '1px solid rgba(255,255,255,0.06)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-              }}
-            >
-              <button
-                onClick={(e) => { e.stopPropagation(); onDelete(download.id); setMenuOpen(false); }}
-                className="w-full px-3 py-1.5 text-[11px] text-left text-red-400 hover:bg-red-500/10 transition-colors"
-              >
-                🗑 Delete
-              </button>
-            </div>
-          )}
+          <ContextMenu
+            open={menuOpen}
+            isCompleted={isCompleted}
+            isActive={isActive}
+            isPaused={isPaused}
+            isFailed={isFailed}
+            onReveal={() => { onReveal(download.id); setMenuOpen(false); }}
+            onCopyUrl={() => { navigator.clipboard.writeText(download.url).catch(() => {}); setMenuOpen(false); }}
+            onPauseResume={isPaused || isActive ? () => { onStart(download.id); setMenuOpen(false); } : undefined}
+            onRetry={isFailed ? () => { onStart(download.id); setMenuOpen(false); } : undefined}
+            onDelete={() => { onDelete(download.id); setMenuOpen(false); }}
+            onClose={() => setMenuOpen(false)}
+          />
         </div>
       </div>
     );
   }
 
+  // ── Standard list variant ─────────────────────────────────────────────────
   return (
     <div
       id={`download-row-${download.id}`}
-      className="group flex items-center gap-4 px-5 py-3.5 transition-all duration-200 cursor-pointer animate-fade-slide relative"
       style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '10px 16px',
+        cursor: 'pointer',
         background: isSelected
-          ? 'rgba(59,130,246,0.06)'
+          ? 'var(--dm-color-bg-selected)'
           : isHovered
-            ? 'rgba(255,255,255,0.02)'
-            : 'transparent',
-        borderLeft: isSelected ? '3px solid #3b82f6' : '3px solid transparent',
+          ? 'var(--dm-color-bg-elevated)'
+          : 'transparent',
+        borderLeft: isSelected
+          ? '2px solid var(--dm-color-accent-primary)'
+          : '2px solid transparent',
+        borderBottom: '1px solid var(--dm-color-border-subtle)',
+        transition: `background var(--dm-duration-fast) var(--dm-easing-standard)`,
+        position: 'relative',
+        minHeight: '64px',
+        boxSizing: 'border-box',
       }}
       onClick={() => onSelect(download.id)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => { setIsHovered(false); setMenuOpen(false); }}
+      onContextMenu={(e) => { e.preventDefault(); setMenuOpen(true); }}
     >
-      {/* File thumbnail */}
-      <FileThumbnail filename={download.file_name} status={status} url={download.url} category={download.category} />
+      {/* Thumbnail */}
+      <FileThumbnail
+        filename={download.file_name}
+        status={status}
+        url={download.url}
+        category={download.category}
+      />
 
-      {/* Main content */}
-      <div className="flex-1 min-w-0 space-y-1.5">
-        {/* Title row */}
-        <div className="flex items-center gap-3">
-          <p className="text-[13px] font-semibold text-white truncate flex-1" title={download.file_name}>
-            {download.file_name}
-          </p>
-        </div>
+      {/* Body */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {/* Title */}
+        <p
+          style={{
+            margin: 0,
+            fontSize: 'var(--dm-text-md)',
+            fontWeight: 'var(--dm-weight-medium)',
+            color: 'var(--dm-color-fg-primary)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            lineHeight: 'var(--dm-leading-tight)',
+          }}
+          title={download.file_name}
+        >
+          {download.file_name}
+        </p>
 
-        {/* Size + speed info with optional badges */}
-        <div className="flex items-center gap-2 text-[11px]" style={{ color: '#8892a8' }}>
-          {(download.category === 'video' || fileExtLabel(download.file_name) === 'MP4' || fileExtLabel(download.file_name) === 'MKV') && (
-            <div className="flex items-center gap-1.5 mr-1 shrink-0">
-              <span className="px-1 py-[1px] rounded text-[9px] font-bold" style={{
-                color: download.file_name.toLowerCase().includes('4k') ? '#ef4444' : '#eab308',
-                background: download.file_name.toLowerCase().includes('4k') ? 'rgba(239,68,68,0.1)' : 'rgba(234,179,8,0.1)',
-                border: `1px solid ${download.file_name.toLowerCase().includes('4k') ? 'rgba(239,68,68,0.2)' : 'rgba(234,179,8,0.2)'}`
-              }}>
-                {download.file_name.toLowerCase().includes('4k') ? '4K' : '1080p'}
-              </span>
-              <span className="px-1 py-[1px] rounded text-[9px] font-bold" style={{
-                color: '#a855f7',
-                background: 'rgba(168,85,247,0.1)',
-                border: '1px solid rgba(168,85,247,0.2)'
-              }}>
-                {fileExtLabel(download.file_name) || 'MP4'}
-              </span>
-            </div>
-          )}
-          <span className="tabular-nums">
-            {formatBytes(downloaded)}
-            {total ? ` / ${formatBytes(total)}` : ''}
-          </span>
-          {isActive && speed > 0 && (
-            <>
-              <span style={{ color: '#505a6e' }}>•</span>
-              <span className="tabular-nums font-medium" style={{ color: '#3b82f6' }}>
-                {formatSpeed(speed)}
-              </span>
-            </>
-          )}
-        </div>
+        {/* Meta line */}
+        <p
+          style={{
+            margin: 0,
+            fontSize: 'var(--dm-text-xs)',
+            color: isHovered ? 'var(--dm-color-fg-secondary)' : 'var(--dm-color-fg-tertiary)',
+            fontVariantNumeric: 'tabular-nums',
+            lineHeight: 'var(--dm-leading-tight)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            transition: `color var(--dm-duration-fast)`,
+          }}
+        >
+          {resolution}
+          {ext ? ` · ${ext}` : ''}
+          {' · '}
+          {formatBytes(downloaded)}
+          {total ? ` / ${formatBytes(total)}` : ''}
+          {isActive && speed > 0 ? ` · ${formatSpeed(speed)}` : ''}
+          {isActive && eta !== null ? ` · ${formatEta(eta)}` : ''}
+        </p>
 
-        {/* Progress bar - only show for non-completed or if there's progress */}
-        {!isCompleted && (
-          <ProgressBar percent={percent} status={status} height={4} />
-        )}
-        {isCompleted && (
-          <ProgressBar percent={100} status={status} height={4} />
-        )}
+        {/* Progress bar (always shown, fills width) */}
+        <ProgressBar percent={isCompleted ? 100 : percent} status={status} height={4} />
       </div>
 
-      {/* Percentage display */}
-      <div className="shrink-0 w-14 text-right">
-        {isActive && percent !== null ? (
-          <span className="text-lg font-bold tabular-nums" style={{ color }}>
-            {Math.round(percent)}%
-          </span>
-        ) : isPaused && percent !== null ? (
-          <span className="text-sm font-semibold" style={{ color }}>
-            Paused
-          </span>
-        ) : isCompleted ? (
-          <span className="text-sm font-semibold" style={{ color }}>
-            Completed
-          </span>
-        ) : isFailed ? (
-          <span className="text-sm font-semibold" style={{ color }}>
-            Failed
-          </span>
-        ) : percent !== null ? (
-          <span className="text-sm font-medium tabular-nums" style={{ color: '#8892a8' }}>
-            {Math.round(percent)}%
-          </span>
-        ) : null}
-      </div>
+      {/* Right cluster */}
+      <div
+        style={{
+          flexShrink: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          gap: '6px',
+          minWidth: '96px',
+        }}
+      >
+        {/* Status/percent row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {isActive && percent !== null ? (
+            <span
+              style={{
+                fontSize: 'var(--dm-text-xs)',
+                fontWeight: 'var(--dm-weight-semibold)',
+                color: 'var(--dm-color-accent-primary)',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {Math.round(percent)}%
+            </span>
+          ) : (
+            <StatusBadge status={status} />
+          )}
+        </div>
 
-      {/* ETA */}
-      {isActive && eta !== null && (
-        <span className="shrink-0 text-[11px] tabular-nums" style={{ color: '#505a6e' }}>
-          {formatEta(eta)}
-        </span>
-      )}
+        {/* Action buttons row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+          {/* Pause (when active) */}
+          {isActive && (
+            <ActionButton
+              aria-label="Pause download"
+              onClick={(e) => { e.stopPropagation(); }}
+            >
+              <IcoPause size={14} />
+            </ActionButton>
+          )}
 
-      {/* Action buttons */}
-      <div className="flex items-center gap-1 shrink-0">
-        {/* Pause / Play / Resume */}
-        {isActive && (
-          <button
-            title="Pause"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-xs transition-all duration-200"
-            style={{
-              background: 'rgba(245,158,11,0.1)',
-              color: '#f59e0b',
-              border: '1px solid rgba(245,158,11,0.15)',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245,158,11,0.2)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(245,158,11,0.1)')}
-          >
-            ⏸
-          </button>
-        )}
-
-        {isCompleted && (
-          <>
-            <button
+          {/* Play (when completed) */}
+          {isCompleted && (
+            <ActionButton
+              aria-label="Play file"
               onClick={(e) => { e.stopPropagation(); onPlay(download.id); }}
-              title="Play"
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-xs transition-all duration-200"
-              style={{
-                background: 'rgba(34,197,94,0.1)',
-                color: '#22c55e',
-                border: '1px solid rgba(34,197,94,0.15)',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(34,197,94,0.2)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(34,197,94,0.1)')}
             >
-              ▶
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onReveal(download.id); }}
-              title="Open folder"
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-xs transition-all duration-200"
-              style={{
-                background: 'rgba(59,130,246,0.1)',
-                color: '#3b82f6',
-                border: '1px solid rgba(59,130,246,0.15)',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.2)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.1)')}
-            >
-              📁
-            </button>
-          </>
-        )}
-
-        {(isPaused || canStart) && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onStart(download.id); }}
-            disabled={actionLoading}
-            title={isFailed ? 'Retry' : 'Resume'}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-xs transition-all duration-200"
-            style={{
-              background: isFailed ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)',
-              color: isFailed ? '#ef4444' : '#3b82f6',
-              border: `1px solid ${isFailed ? 'rgba(239,68,68,0.15)' : 'rgba(59,130,246,0.15)'}`,
-              cursor: actionLoading ? 'not-allowed' : 'pointer',
-              opacity: actionLoading ? 0.5 : 1,
-            }}
-            onMouseEnter={e => {
-              if (!actionLoading) e.currentTarget.style.background = isFailed ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)';
-            }}
-            onMouseLeave={e => {
-              if (!actionLoading) e.currentTarget.style.background = isFailed ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)';
-            }}
-          >
-            {actionLoading ? '⟳' : isFailed ? '↻' : '▶'}
-          </button>
-        )}
-
-        {/* Menu dots */}
-        <div className="relative">
-          <button
-            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all duration-200"
-            style={{
-              background: menuOpen ? 'rgba(255,255,255,0.06)' : 'transparent',
-              color: '#505a6e',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
-            onMouseLeave={e => { if (!menuOpen) e.currentTarget.style.background = 'transparent'; }}
-          >
-            ⋮
-          </button>
-
-          {/* Context menu */}
-          {menuOpen && (
-            <div
-              className="absolute right-0 top-full mt-1 w-36 rounded-xl py-1 z-50 animate-slide-down"
-              style={{
-                background: '#1a2138',
-                border: '1px solid rgba(255,255,255,0.08)',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-              }}
-            >
-              {isCompleted && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onReveal(download.id); setMenuOpen(false); }}
-                  className="w-full px-3 py-2 text-xs text-left transition-colors"
-                  style={{ color: '#8892a8' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  📂 Open folder
-                </button>
-              )}
-              <button
-                onClick={(e) => { e.stopPropagation(); onDelete(download.id); setMenuOpen(false); }}
-                className="w-full px-3 py-2 text-xs text-left transition-colors"
-                style={{ color: '#ef4444' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(239,68,68,0.06)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              >
-                🗑 Delete
-              </button>
-            </div>
+              <IcoPlay size={14} />
+            </ActionButton>
           )}
+
+          {/* Open folder (when completed) */}
+          {isCompleted && (
+            <ActionButton
+              aria-label="Open folder"
+              onClick={(e) => { e.stopPropagation(); onReveal(download.id); }}
+            >
+              <IcoFolder size={14} />
+            </ActionButton>
+          )}
+
+          {/* Resume/retry */}
+          {(isPaused || canStart) && (
+            <ActionButton
+              aria-label={isFailed ? 'Retry download' : 'Resume download'}
+              disabled={actionLoading}
+              onClick={(e) => { e.stopPropagation(); onStart(download.id); }}
+            >
+              {isFailed ? <IcoRetry size={14} /> : <IcoPlay size={14} />}
+            </ActionButton>
+          )}
+
+          {/* 3-dot menu */}
+          <div style={{ position: 'relative' }}>
+            <ActionButton
+              aria-label="More options"
+              active={menuOpen}
+              onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+            >
+              <IcoMoreVert size={14} />
+            </ActionButton>
+            <ContextMenu
+              open={menuOpen}
+              isCompleted={isCompleted}
+              isActive={isActive}
+              isPaused={isPaused}
+              isFailed={isFailed}
+              onOpen={isCompleted ? () => { onPlay(download.id); setMenuOpen(false); } : undefined}
+              onReveal={() => { onReveal(download.id); setMenuOpen(false); }}
+              onCopyUrl={() => { navigator.clipboard.writeText(download.url).catch(() => {}); setMenuOpen(false); }}
+              onPauseResume={(isActive || isPaused) ? () => { onStart(download.id); setMenuOpen(false); } : undefined}
+              onRetry={isFailed ? () => { onStart(download.id); setMenuOpen(false); } : undefined}
+              onDelete={() => { onDelete(download.id); setMenuOpen(false); }}
+              onClose={() => setMenuOpen(false)}
+            />
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Shared action button ───────────────────────────────────────────────────
+
+function ActionButton({
+  children,
+  onClick,
+  disabled,
+  active,
+  'aria-label': ariaLabel,
+}: {
+  children: React.ReactNode;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  disabled?: boolean;
+  active?: boolean;
+  'aria-label'?: string;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      aria-label={ariaLabel}
+      disabled={disabled}
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        width: '24px',
+        height: '24px',
+        borderRadius: 'var(--dm-radius-sm)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: active || hovered ? 'var(--dm-color-bg-hover)' : 'transparent',
+        border: 'none',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        color: hovered ? 'var(--dm-color-fg-primary)' : 'var(--dm-color-fg-tertiary)',
+        opacity: disabled ? 0.4 : 1,
+        transition: `color var(--dm-duration-fast), background var(--dm-duration-fast)`,
+        flexShrink: 0,
+      }}
+    >
+      {children}
+    </button>
   );
 }

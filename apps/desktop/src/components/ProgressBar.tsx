@@ -1,4 +1,3 @@
-import { statusColor } from '../utils';
 import type { DownloadStatus } from '../types';
 
 interface ProgressBarProps {
@@ -8,62 +7,117 @@ interface ProgressBarProps {
   showStripes?: boolean;
 }
 
+const shimmerKeyframes = `
+@keyframes dm-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+@keyframes dm-indeterminate {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+`;
+
 export function ProgressBar({ percent, status, height = 4, showStripes = false }: ProgressBarProps) {
-  const color = statusColor(status);
   const pct = percent ?? 0;
-  const isActive = status === 'downloading';
+  const isActive = status === 'downloading' || status === 'merging';
   const isPaused = status === 'paused';
   const isFailed = status === 'failed';
+  const isCompleted = status === 'completed';
+  const isIndeterminate = isActive && percent === null;
+
+  // Map status to design token CSS vars
+  const fillColor = isCompleted
+    ? 'var(--dm-color-status-success-text)'
+    : isFailed
+    ? 'var(--dm-color-status-danger-text)'
+    : isPaused
+    ? 'var(--dm-color-status-warning-text)'
+    : 'var(--dm-color-accent-primary)';
 
   return (
-    <div
-      className="w-full rounded-full overflow-hidden"
-      style={{
-        height: `${height}px`,
-        background: 'rgba(255,255,255,0.06)',
-      }}
-    >
+    <>
+      <style>{shimmerKeyframes}</style>
       <div
-        className="h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden"
+        role="progressbar"
+        aria-valuenow={percent ?? undefined}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`Download progress: ${percent !== null ? Math.round(percent) + '%' : 'in progress'}`}
         style={{
-          width: `${Math.min(pct, 100)}%`,
-          background: isFailed
-            ? `linear-gradient(90deg, ${color}, ${color}cc)`
-            : isPaused
-              ? `linear-gradient(90deg, ${color}, ${color}cc)`
-              : `linear-gradient(90deg, ${color}, ${color}dd)`,
-          boxShadow: isActive ? `0 0 12px ${color}40` : 'none',
+          width: '100%',
+          height: `${height}px`,
+          background: 'var(--dm-color-bg-recessed)',
+          borderRadius: 'var(--dm-radius-full)',
+          overflow: 'hidden',
+          position: 'relative',
         }}
       >
-        {/* Shimmer effect for active downloads */}
-        {isActive && (
+        {isIndeterminate ? (
+          /* Indeterminate shimmer — gradient sliding across the track */
           <div
-            className="absolute inset-0 rounded-full"
             style={{
-              background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%)',
-              animation: 'shimmer 1.5s infinite linear',
-              backgroundSize: '200px 100%',
-            }}
-          />
-        )}
-        {/* Stripe pattern for paused */}
-        {(showStripes || isPaused) && (
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `repeating-linear-gradient(
-                -45deg,
-                transparent,
-                transparent 5px,
-                rgba(255,255,255,0.08) 5px,
-                rgba(255,255,255,0.08) 10px
+              position: 'absolute',
+              inset: 0,
+              background: `linear-gradient(
+                90deg,
+                transparent 0%,
+                ${fillColor} 40%,
+                var(--dm-color-accent-subtle) 60%,
+                transparent 100%
               )`,
-              backgroundSize: '30px 30px',
-              animation: isPaused ? 'none' : 'progress-stripe 0.6s linear infinite',
+              backgroundSize: '200px 100%',
+              backgroundRepeat: 'no-repeat',
+              animation: 'dm-indeterminate 1.4s ease-in-out infinite',
             }}
           />
+        ) : (
+          <div
+            style={{
+              height: '100%',
+              width: `${Math.min(Math.max(pct, 0), 100)}%`,
+              background: fillColor,
+              borderRadius: 'var(--dm-radius-full)',
+              transition: `width var(--dm-duration-normal) var(--dm-easing-standard)`,
+              position: 'relative',
+              overflow: 'hidden',
+              // Glow effect on active downloads
+              boxShadow: isActive ? `0 0 8px color-mix(in srgb, ${fillColor} 60%, transparent)` : 'none',
+            }}
+          >
+            {/* Shimmer sweep for active progress */}
+            {isActive && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '30%',
+                  height: '100%',
+                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%)',
+                  animation: 'dm-shimmer 1.6s ease-in-out infinite',
+                }}
+              />
+            )}
+            {/* Diagonal stripe overlay for paused */}
+            {(isPaused || showStripes) && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  backgroundImage: `repeating-linear-gradient(
+                    -45deg,
+                    transparent,
+                    transparent 4px,
+                    rgba(255,255,255,0.10) 4px,
+                    rgba(255,255,255,0.10) 8px
+                  )`,
+                }}
+              />
+            )}
+          </div>
         )}
       </div>
-    </div>
+    </>
   );
 }

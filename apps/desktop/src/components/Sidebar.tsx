@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 
 interface SidebarProps {
   activeFilter: string;
@@ -7,38 +7,172 @@ interface SidebarProps {
   categoryCounts: Record<string, number>;
 }
 
-const STATUS_FILTERS: { key: string; label: string; icon: string }[] = [
-  { key: 'all',         label: 'Downloads',   icon: '↓' },
-  { key: 'downloading', label: 'Active',      icon: '▶' },
-  { key: 'paused',      label: 'Paused',      icon: '⏸' },
-  { key: 'completed',   label: 'Completed',   icon: '✓' },
-  { key: 'failed',      label: 'Failed',      icon: '✕' },
+// Minimal inline SVG icons — 16×16 viewBox, stroke-based
+function IconDownload() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 2v8M5 7l3 3 3-3" />
+      <path d="M2 12h12" />
+    </svg>
+  );
+}
+function IconPlay() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="5,3 13,8 5,13" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+function IconPause() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <rect x="4" y="3" width="2.5" height="10" rx="1" fill="currentColor" stroke="none" />
+      <rect x="9.5" y="3" width="2.5" height="10" rx="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+function IconCheck() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="8" r="6" />
+      <path d="M5.5 8l2 2 3-3" />
+    </svg>
+  );
+}
+function IconX() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <circle cx="8" cy="8" r="6" />
+      <path d="M6 6l4 4M10 6l-4 4" />
+    </svg>
+  );
+}
+function IconFolder() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 5a1 1 0 011-1h3.5l1.5 1.5H13a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1V5z" />
+    </svg>
+  );
+}
+function IconVideo() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="4" width="10" height="8" rx="1.5" />
+      <path d="M11 7l4-2v6l-4-2V7z" />
+    </svg>
+  );
+}
+function IconFileText() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V6l-4-4z" />
+      <path d="M9 2v4h4" />
+      <path d="M5.5 9.5h5M5.5 11.5h3" />
+    </svg>
+  );
+}
+function IconArchive() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="3" width="12" height="3" rx="1" />
+      <path d="M3 6v7a1 1 0 001 1h8a1 1 0 001-1V6" />
+      <path d="M6.5 9.5h3" />
+    </svg>
+  );
+}
+function IconMusic() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 13V4l7-2v9" />
+      <circle cx="4.5" cy="13" r="1.5" />
+      <circle cx="11.5" cy="11" r="1.5" />
+    </svg>
+  );
+}
+function IconImage() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="3" width="12" height="10" rx="1.5" />
+      <circle cx="5.5" cy="6.5" r="1" />
+      <path d="M2 11l3.5-3 3 3 2-2 3 2" />
+    </svg>
+  );
+}
+function IconPackage() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13 5.5L8 3 3 5.5v5L8 13l5-2.5v-5z" />
+      <path d="M8 3v10M3 5.5l5 2.5 5-2.5" />
+    </svg>
+  );
+}
+function IconDots() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+      <circle cx="8" cy="3.5" r="1.3" />
+      <circle cx="8" cy="8" r="1.3" />
+      <circle cx="8" cy="12.5" r="1.3" />
+    </svg>
+  );
+}
+function IconCalendar() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="3" width="12" height="11" rx="1.5" />
+      <path d="M5 2v2M11 2v2M2 7h12" />
+    </svg>
+  );
+}
+function IconGlobe() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="8" r="6" />
+      <path d="M8 2c-2 2-2 8 0 12M8 2c2 2 2 8 0 12" />
+      <path d="M2.5 6h11M2.5 10h11" />
+    </svg>
+  );
+}
+function IconSettings() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="8" r="2.5" />
+      <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
+    </svg>
+  );
+}
+function IconArrowDown() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 3v8M5 8l3 3 3-3" />
+    </svg>
+  );
+}
+
+type NavRowIconType = () => React.ReactElement;
+
+const STATUS_FILTERS: { key: string; label: string; Icon: NavRowIconType }[] = [
+  { key: 'all',         label: 'All Downloads', Icon: IconDownload },
+  { key: 'downloading', label: 'Active',         Icon: IconPlay },
+  { key: 'paused',      label: 'Paused',         Icon: IconPause },
+  { key: 'completed',   label: 'Completed',      Icon: IconCheck },
+  { key: 'failed',      label: 'Failed',          Icon: IconX },
 ];
 
-const CATEGORIES: { key: string; label: string; icon: string; color: string }[] = [
-  { key: 'cat:all',        label: 'All Files',    icon: '📁', color: '#8892a8' },
-  { key: 'cat:video',      label: 'Video',        icon: '▶',  color: '#8b5cf6' },
-  { key: 'cat:document',   label: 'Documents',    icon: '📄', color: '#3b82f6' },
-  { key: 'cat:compressed', label: 'Compressed',   icon: '⧈',  color: '#a855f7' },
-  { key: 'cat:audio',      label: 'Audio',        icon: '♪',  color: '#ec4899' },
-  { key: 'cat:image',      label: 'Images',       icon: '🖼', color: '#06b6d4' },
-  { key: 'cat:software',   label: 'Software',     icon: '⚙',  color: '#14b8a6' },
-  { key: 'cat:other',      label: 'Others',       icon: '•',  color: '#6b7280' },
+const CATEGORIES: { key: string; label: string; Icon: NavRowIconType }[] = [
+  { key: 'cat:all',        label: 'All Files',   Icon: IconFolder },
+  { key: 'cat:video',      label: 'Video',       Icon: IconVideo },
+  { key: 'cat:document',   label: 'Documents',   Icon: IconFileText },
+  { key: 'cat:compressed', label: 'Compressed',  Icon: IconArchive },
+  { key: 'cat:audio',      label: 'Audio',       Icon: IconMusic },
+  { key: 'cat:image',      label: 'Images',      Icon: IconImage },
+  { key: 'cat:software',   label: 'Software',    Icon: IconPackage },
+  { key: 'cat:other',      label: 'Others',      Icon: IconDots },
 ];
 
-const STATUS_COLORS: Record<string, string> = {
-  all: '#3b82f6',
-  downloading: '#3b82f6',
-  completed: '#22c55e',
-  paused: '#f59e0b',
-  failed: '#ef4444',
-  pending: '#6b7280',
-};
-
-const NAV_ITEMS: { label: string; icon: string }[] = [
-  { label: 'Scheduler',         icon: '📅' },
-  { label: 'Browser Extension', icon: '🌐' },
-  { label: 'Settings',          icon: '⚙' },
+const NAV_ITEMS: { label: string; Icon: NavRowIconType }[] = [
+  { label: 'Scheduler',         Icon: IconCalendar },
+  { label: 'Browser Extension', Icon: IconGlobe },
+  { label: 'Settings',          Icon: IconSettings },
 ];
 
 export function Sidebar({ activeFilter, onFilterChange, counts, categoryCounts }: SidebarProps) {
@@ -46,85 +180,110 @@ export function Sidebar({ activeFilter, onFilterChange, counts, categoryCounts }
 
   const allCatCount = Object.values(categoryCounts).reduce((a, b) => a + b, 0);
 
-  function renderStatusRow(key: string, label: string, icon: string, color: string, count: number) {
-    const isActive = activeFilter === key;
-    const isHovered = hoveredItem === key;
+  function NavRow({
+    id,
+    label,
+    Icon,
+    count,
+    onClick,
+  }: {
+    id: string;
+    label: string;
+    Icon: NavRowIconType;
+    count?: number;
+    onClick?: () => void;
+  }) {
+    const isActive = activeFilter === id;
+    const isHovered = hoveredItem === id;
+
     return (
       <button
-        key={key}
-        id={`sidebar-filter-${key}`}
-        onClick={() => onFilterChange(key)}
-        onMouseEnter={() => setHoveredItem(key)}
+        onClick={onClick}
+        onMouseEnter={() => setHoveredItem(id)}
         onMouseLeave={() => setHoveredItem(null)}
-        className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] transition-all duration-200"
         style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          height: '32px',
+          padding: '0 10px',
+          paddingLeft: isActive ? '10px' : '12px',
+          borderRadius: 'var(--dm-radius-md)',
           background: isActive
-            ? `linear-gradient(135deg, ${color}18, ${color}0a)`
-            : isHovered ? 'rgba(255,255,255,0.03)' : 'transparent',
-          color: isActive ? '#e2e8f0' : '#8892a8',
-          fontWeight: isActive ? 600 : 400,
-          borderLeft: isActive ? `3px solid ${color}` : '3px solid transparent',
+            ? 'var(--dm-color-bg-selected)'
+            : isHovered
+            ? 'var(--dm-color-bg-hover)'
+            : 'transparent',
+          borderLeft: isActive
+            ? '2px solid var(--dm-color-accent-primary)'
+            : '2px solid transparent',
+          color: isActive
+            ? 'var(--dm-color-fg-primary)'
+            : 'var(--dm-color-fg-secondary)',
+          fontSize: 'var(--dm-text-sm)',
+          fontWeight: isActive ? 'var(--dm-weight-medium)' : 'var(--dm-weight-regular)',
+          lineHeight: 'var(--dm-leading-tight)',
+          cursor: 'pointer',
+          outline: 'none',
+          transition: `background var(--dm-duration-fast) var(--dm-easing-standard),
+                       color var(--dm-duration-fast) var(--dm-easing-standard)`,
+          textAlign: 'left',
+          boxSizing: 'border-box',
         }}
       >
-        <span className="flex items-center gap-2.5 min-w-0">
-          <span
-            className="w-5 text-center text-xs shrink-0"
-            style={{ color: isActive ? color : '#505a6e' }}
-          >
-            {icon}
-          </span>
-          <span className="truncate">{label}</span>
-        </span>
         <span
-          className="text-[11px] min-w-[22px] text-center px-1.5 py-0.5 rounded-md tabular-nums shrink-0 font-medium"
           style={{
-            color: isActive ? color : '#505a6e',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            minWidth: 0,
+            flex: 1,
+            overflow: 'hidden',
+            color: isActive
+              ? 'var(--dm-color-accent-primary)'
+              : 'var(--dm-color-fg-tertiary)',
           }}
         >
-          {count}
-        </span>
-      </button>
-    );
-  }
-
-  function renderCategoryRow(key: string, label: string, icon: string, color: string, count: number) {
-    const isActive = activeFilter === key;
-    const isHovered = hoveredItem === key;
-    return (
-      <button
-        key={key}
-        id={`sidebar-cat-${key}`}
-        onClick={() => onFilterChange(key)}
-        onMouseEnter={() => setHoveredItem(key)}
-        onMouseLeave={() => setHoveredItem(null)}
-        className="w-full flex items-center justify-between px-3 py-[7px] rounded-lg text-[13px] transition-all duration-200"
-        style={{
-          background: isActive
-            ? 'rgba(139, 92, 246, 0.15)'
-            : isHovered ? 'rgba(255,255,255,0.02)' : 'transparent',
-          color: isActive ? '#e2e8f0' : '#8892a8',
-          fontWeight: isActive ? 500 : 400,
-          border: isActive ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid transparent'
-        }}
-      >
-        <span className="flex items-center gap-2.5 min-w-0">
+          <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+            <Icon />
+          </span>
           <span
-            className="w-5 h-5 rounded flex items-center justify-center text-[11px] shrink-0"
             style={{
-              background: isActive ? '#8b5cf6' : `${color}18`,
-              color: isActive ? '#ffffff' : color,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              color: isActive
+                ? 'var(--dm-color-fg-primary)'
+                : 'var(--dm-color-fg-secondary)',
             }}
           >
-            {icon}
+            {label}
           </span>
-          <span className="truncate">{label}</span>
         </span>
-        <span
-          className="text-[11px] tabular-nums shrink-0 font-medium"
-          style={{ color: isActive ? '#a78bfa' : '#505a6e' }}
-        >
-          {count}
-        </span>
+
+        {count !== undefined && (
+          <span
+            style={{
+              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '20px',
+              height: '18px',
+              padding: '0 5px',
+              borderRadius: 'var(--dm-radius-full)',
+              background: 'var(--dm-color-bg-recessed)',
+              color: 'var(--dm-color-fg-tertiary)',
+              fontSize: 'var(--dm-text-xs)',
+              fontVariantNumeric: 'tabular-nums',
+              lineHeight: 1,
+              marginLeft: '6px',
+            }}
+          >
+            {count}
+          </span>
+        )}
       </button>
     );
   }
@@ -132,87 +291,238 @@ export function Sidebar({ activeFilter, onFilterChange, counts, categoryCounts }
   return (
     <aside
       id="sidebar"
-      className="flex flex-col h-full w-[200px] shrink-0 overflow-y-auto"
       style={{
-        background: '#0a0e1a',
-        borderRight: '1px solid rgba(255,255,255,0.06)',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        width: '220px',
+        flexShrink: 0,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        background: 'var(--dm-color-bg-app)',
+        borderRight: '1px solid var(--dm-color-border-subtle)',
       }}
     >
-      {/* Status filters */}
-      <nav className="px-2 pt-2 pb-1 space-y-0.5">
-        {STATUS_FILTERS.map(({ key, label, icon }) =>
-          renderStatusRow(key, label, icon, STATUS_COLORS[key] ?? '#6b7280', counts[key] ?? 0),
-        )}
-      </nav>
-
-      {/* Divider */}
-      <div className="mx-3 my-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }} />
-
-      {/* Categories header */}
-      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] px-5 mb-1.5" style={{ color: '#505a6e' }}>
-        Categories
-      </p>
-
-      <nav className="flex-1 px-2 space-y-0.5 min-h-0">
-        {CATEGORIES.map(({ key, label, icon, color }) => {
-          let count = 0;
-          if (key === 'cat:all') {
-            count = allCatCount;
-          } else {
-            count = categoryCounts[key.replace('cat:', '')] ?? 0;
-          }
-          return renderCategoryRow(key, label, icon, color, count);
-        })}
-      </nav>
-
-      {/* Divider */}
-      <div className="mx-3 my-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }} />
-
-      {/* Nav items */}
-      <nav className="px-2 pb-2 space-y-0.5">
-        {NAV_ITEMS.map(({ label, icon }) => (
-          <button
-            key={label}
-            onMouseEnter={() => setHoveredItem(`nav-${label}`)}
-            onMouseLeave={() => setHoveredItem(null)}
-            className="w-full flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] transition-all duration-200"
+      {/* Brand header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '9px',
+          padding: '14px 16px 12px',
+          borderBottom: '1px solid var(--dm-color-border-subtle)',
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            width: '26px',
+            height: '26px',
+            borderRadius: 'var(--dm-radius-md)',
+            background: 'var(--dm-color-accent-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <IconArrowDown />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div
             style={{
-              color: '#8892a8',
-              background: hoveredItem === `nav-${label}` ? 'rgba(255,255,255,0.03)' : 'transparent',
+              fontSize: 'var(--dm-text-sm)',
+              fontWeight: 'var(--dm-weight-semibold)',
+              color: 'var(--dm-color-fg-primary)',
+              lineHeight: 'var(--dm-leading-tight)',
+              letterSpacing: 'var(--dm-tracking-tight)',
             }}
           >
-            <span className="w-5 text-center text-xs shrink-0" style={{ color: '#505a6e' }}>{icon}</span>
-            <span>{label}</span>
-          </button>
+            DownloadMgr
+          </div>
+          <div
+            style={{
+              fontSize: '10px',
+              color: 'var(--dm-color-fg-tertiary)',
+              lineHeight: 1,
+              marginTop: '2px',
+              letterSpacing: '0.01em',
+            }}
+          >
+            Fast · Reliable
+          </div>
+        </div>
+      </div>
+
+      {/* Status filters */}
+      <nav
+        style={{ padding: '8px 6px 4px', display: 'flex', flexDirection: 'column', gap: '1px' }}
+        aria-label="Download status filters"
+      >
+        {STATUS_FILTERS.map(({ key, label, Icon }) => (
+          <NavRow
+            key={key}
+            id={key}
+            label={label}
+            Icon={Icon}
+            count={counts[key] ?? 0}
+            onClick={() => onFilterChange(key)}
+          />
         ))}
       </nav>
 
-      {/* Browser extension promo */}
-      <div className="px-3 pb-4 shrink-0">
-        <div
-          className="rounded-xl p-3"
+      {/* Divider */}
+      <div
+        style={{
+          height: '1px',
+          background: 'var(--dm-color-border-subtle)',
+          margin: '6px 12px',
+          flexShrink: 0,
+        }}
+      />
+
+      {/* Categories section */}
+      <div
+        style={{
+          padding: '2px 6px 4px',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1px',
+          minHeight: 0,
+        }}
+      >
+        <p
           style={{
-            background: 'linear-gradient(135deg, rgba(88,28,135,0.4), rgba(76,29,149,0.1))',
-            border: '1px solid rgba(139,92,246,0.15)',
+            fontSize: '10px',
+            fontWeight: 'var(--dm-weight-semibold)',
+            color: 'var(--dm-color-fg-tertiary)',
+            textTransform: 'uppercase',
+            letterSpacing: 'var(--dm-tracking-widest)',
+            lineHeight: 1,
+            padding: '4px 10px 6px',
+            margin: 0,
           }}
         >
-          <div className="flex items-center gap-2 mb-1.5">
+          Categories
+        </p>
+        {CATEGORIES.map(({ key, label, Icon }) => {
+          const count =
+            key === 'cat:all'
+              ? allCatCount
+              : categoryCounts[key.replace('cat:', '')] ?? 0;
+          return (
+            <NavRow
+              key={key}
+              id={key}
+              label={label}
+              Icon={Icon}
+              count={count}
+              onClick={() => onFilterChange(key)}
+            />
+          );
+        })}
+      </div>
+
+      {/* Divider */}
+      <div
+        style={{
+          height: '1px',
+          background: 'var(--dm-color-border-subtle)',
+          margin: '6px 12px',
+          flexShrink: 0,
+        }}
+      />
+
+      {/* Utility nav */}
+      <nav
+        style={{ padding: '0 6px 8px', display: 'flex', flexDirection: 'column', gap: '1px' }}
+        aria-label="Utility navigation"
+      >
+        {NAV_ITEMS.map(({ label, Icon }) => (
+          <NavRow key={label} id={`nav-${label}`} label={label} Icon={Icon} />
+        ))}
+      </nav>
+
+      {/* Extension promo card */}
+      <div style={{ padding: '0 10px 12px', flexShrink: 0 }}>
+        <div
+          style={{
+            borderRadius: 'var(--dm-radius-lg)',
+            padding: '10px 12px',
+            background: 'var(--dm-color-accent-subtle)',
+            border: '1px solid rgba(124, 106, 247, 0.20)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '6px',
+            }}
+          >
             <div
-              className="w-7 h-7 rounded-full bg-white flex items-center justify-center overflow-hidden"
+              style={{
+                width: '22px',
+                height: '22px',
+                borderRadius: '50%',
+                background: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                flexShrink: 0,
+              }}
             >
-              <img src="https://upload.wikimedia.org/wikipedia/commons/e/e1/Google_Chrome_icon_%28February_2022%29.svg" alt="Chrome" className="w-5 h-5" />
+              <img
+                src="https://upload.wikimedia.org/wikipedia/commons/e/e1/Google_Chrome_icon_%28February_2022%29.svg"
+                alt="Chrome"
+                style={{ width: '16px', height: '16px' }}
+              />
             </div>
-            <span className="text-[13px] font-semibold text-white">Add our extension</span>
+            <span
+              style={{
+                fontSize: 'var(--dm-text-sm)',
+                fontWeight: 'var(--dm-weight-semibold)',
+                color: 'var(--dm-color-fg-primary)',
+                lineHeight: 'var(--dm-leading-tight)',
+              }}
+            >
+              Add our extension
+            </span>
           </div>
-          <p className="text-[11px] mb-3" style={{ color: '#a0aec0' }}>
+          <p
+            style={{
+              fontSize: 'var(--dm-text-xs)',
+              color: 'var(--dm-color-fg-secondary)',
+              lineHeight: '1.4',
+              margin: '0 0 8px',
+            }}
+          >
             Download from any website with one click.
           </p>
           <button
-            className="w-full text-[11px] font-medium py-1.5 rounded-lg transition-all"
             style={{
+              width: '100%',
+              fontSize: 'var(--dm-text-xs)',
+              fontWeight: 'var(--dm-weight-medium)',
+              padding: '5px 0',
+              borderRadius: 'var(--dm-radius-sm)',
               background: 'transparent',
-              color: '#e2e8f0',
-              border: '1px solid rgba(255,255,255,0.1)',
+              color: 'var(--dm-color-fg-secondary)',
+              border: '1px solid var(--dm-color-border-default)',
+              cursor: 'pointer',
+              transition: `background var(--dm-duration-fast) var(--dm-easing-standard),
+                           color var(--dm-duration-fast) var(--dm-easing-standard)`,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--dm-color-bg-hover)';
+              e.currentTarget.style.color = 'var(--dm-color-fg-primary)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'var(--dm-color-fg-secondary)';
             }}
           >
             Install Extension ↗
