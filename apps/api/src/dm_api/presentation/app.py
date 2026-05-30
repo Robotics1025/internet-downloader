@@ -49,6 +49,8 @@ from dm_api.infrastructure.media.ytdlp_worker import YtDlpWorker
 from dm_api.infrastructure.persistence.sqlite_download_repository import (
     SQLiteDownloadRepository,
 )
+from dm_api.infrastructure.persistence.sqlite_settings_repository import SqliteSettingsRepository
+from dm_api.presentation.routers import settings as settings_router
 
 
 def _platform_default_data_dir() -> Path:
@@ -109,6 +111,8 @@ _logger = _logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    from sqlalchemy.ext.asyncio import create_async_engine
+
     db_url = _resolve_database_url()
     _run_migrations_sync()
     # alembic.ini contains a [loggers] section that calls fileConfig(), which
@@ -116,6 +120,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # the JSON file handler is restored before any application code runs.
     configure_logging()
     _logger.info("dm-api started", extra={"db_url": db_url})
+
+    # Build an async SQLAlchemy engine for the settings repository.
+    # The download repository uses raw aiosqlite; the settings repo uses SA.
+    async_db_url = db_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+    sa_engine = create_async_engine(async_db_url)
+    app.state.settings_repo = SqliteSettingsRepository(sa_engine)
 
     repo = SQLiteDownloadRepository(db_url)
     event_bus = InMemoryEventBus()
@@ -152,9 +162,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             runner=runner,
         )
 
-        yield
-        
-        await progress_service.stop()
+        try:
+            yield
+        finally:
+            await progress_service.stop()
+            await sa_engine.dispose()
 
 
 def create_app() -> FastAPI:
@@ -196,5 +208,6 @@ def create_app() -> FastAPI:
     app.include_router(media.router)
     app.include_router(stream.router)
     app.include_router(progress_gateway.router)
+    app.include_router(settings_router.router)
 
     return app
