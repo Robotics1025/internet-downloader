@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useDownloads } from './hooks/useDownloads';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
@@ -10,7 +10,16 @@ import { AddDownloadDialog } from './components/AddDownloadDialog';
 import { InlineMediaPlayer } from './components/InlineMediaPlayer';
 import { PlaylistView, buildGroups } from './components/PlaylistView';
 import { PlaylistDetailPanel } from './components/PlaylistDetailPanel';
+import { EmptyState } from './components/EmptyState';
+import { SkeletonRow } from './components/SkeletonRow';
 import { api } from './api';
+import {
+  Inbox,
+  Download,
+  CheckCircle,
+  AlertCircle,
+  AlertTriangle,
+} from 'lucide-react';
 
 function App() {
   const { downloads, progress, loading, error, startDownload, addDownload, deleteDownload, refresh } = useDownloads();
@@ -162,6 +171,54 @@ function App() {
     }
   }
 
+  const handlePasteUrl = useCallback(async () => {
+    try {
+      const url = await navigator.clipboard.readText();
+      if (url) {
+        setShowAdd(true);
+        // Pre-fill is handled by opening the dialog; clipboard content
+        // available for user to paste into the input.
+      } else {
+        setShowAdd(true);
+      }
+    } catch {
+      // Permission denied — fall back to opening empty dialog.
+      setShowAdd(true);
+    }
+  }, []);
+
+  // Derive filter-context empty state props
+  const emptyStateProps = useMemo(() => {
+    // Sidebar status filters
+    if (!sidebarFilter.startsWith('cat:')) {
+      switch (sidebarFilter) {
+        case 'active':
+        case 'queued':
+          return { icon: Download, title: 'Nothing downloading', body: 'Start a download or paste a URL to begin.' };
+        case 'completed':
+          return { icon: CheckCircle, title: 'No completed downloads', body: 'Finished downloads will appear here.' };
+        case 'failed':
+          return { icon: AlertCircle, title: 'No failed downloads', body: 'Any downloads that fail will show up here.' };
+      }
+    }
+    // Tab-level filters
+    switch (tabFilter) {
+      case 'active':
+        return { icon: Download, title: 'Nothing downloading', body: 'Start a download or paste a URL to begin.' };
+      case 'downloaded':
+      case 'completed':
+        return { icon: CheckCircle, title: 'No completed downloads', body: 'Finished downloads will appear here.' };
+      case 'failed':
+        return { icon: AlertCircle, title: 'No failed downloads', body: 'Any downloads that fail will show up here.' };
+    }
+    // Default / "All" view
+    return {
+      icon: Inbox,
+      title: 'No downloads yet',
+      body: 'Add a URL above, or use the browser extension to send media here.',
+    };
+  }, [sidebarFilter, tabFilter]);
+
   return (
     <div id="app-root" className="flex flex-col h-screen w-full overflow-hidden text-white" style={{ background: '#0a0e1a' }}>
       {/* Top bar */}
@@ -222,58 +279,28 @@ function App() {
                 activeGroupId={activeGroupId}
                 onActiveGroupChange={setActiveGroupId}
               />
-            ) : loading && downloads.length === 0 ? (
-              <div className="p-5 space-y-3">
-                {[1, 2, 3, 4].map(i => (
-                  <div key={i} className="h-[72px] rounded-xl skeleton" />
-                ))}
-              </div>
             ) : error && downloads.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                <div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 text-2xl"
-                  style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}
-                >
-                  ⚠
-                </div>
-                <p className="text-sm font-medium" style={{ color: '#ef4444' }}>{error}</p>
-                <p className="text-xs mt-2" style={{ color: '#505a6e' }}>Check if the API server is running</p>
-                <button
-                  onClick={refresh}
-                  className="mt-4 px-4 py-2 rounded-lg text-xs font-medium transition-all"
-                  style={{
-                    background: 'rgba(59,130,246,0.15)',
-                    color: '#3b82f6',
-                    border: '1px solid rgba(59,130,246,0.2)',
-                  }}
-                >
-                  ↻ Retry
-                </button>
-              </div>
+              <EmptyState
+                icon={AlertTriangle}
+                title="Can't reach DownloadMgr"
+                body={`The backend isn't responding. ${typeof error === 'string' ? error : ''}`}
+                cta={{ label: 'Retry', onClick: refresh }}
+              />
+            ) : loading && downloads.length === 0 ? (
+              <>
+                <SkeletonRow />
+                <SkeletonRow />
+                <SkeletonRow />
+              </>
             ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                <div
-                  className="w-20 h-20 rounded-2xl flex items-center justify-center mb-4 text-3xl"
-                  style={{ background: 'rgba(255,255,255,0.03)' }}
-                >
-                  📥
-                </div>
-                <p className="text-sm font-medium text-white">No downloads yet</p>
-                <p className="text-xs mt-1.5" style={{ color: '#505a6e' }}>
-                  Paste a URL or click "Add Download" to get started
-                </p>
-                <button
-                  onClick={() => setShowAdd(true)}
-                  className="mt-4 px-5 py-2.5 rounded-xl text-xs font-semibold transition-all"
-                  style={{
-                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                    color: 'white',
-                    boxShadow: '0 4px 16px rgba(34,197,94,0.25)',
-                  }}
-                >
-                  + Add Your First Download
-                </button>
-              </div>
+              <EmptyState
+                {...emptyStateProps}
+                cta={
+                  emptyStateProps.icon === Inbox
+                    ? { label: 'Paste URL', onClick: handlePasteUrl }
+                    : undefined
+                }
+              />
             ) : (
               <div>
                 {filtered.map(d => (
