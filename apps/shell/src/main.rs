@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod error;
+mod notifications;
 mod sidecar;
 mod tray;
 
@@ -8,6 +9,7 @@ use tauri::{Manager, WebviewWindowBuilder, WebviewUrl};
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
             // Second-instance launch: bring the existing window to front.
             if let Some(window) = app.get_webview_window("main") {
@@ -48,6 +50,8 @@ fn main() {
                                 if let Err(e) = tray::install(&handle) {
                                     eprintln!("failed to install tray icon: {e}");
                                 }
+
+                                notifications::install(&handle, port);
                             }
                             Err(err) => {
                                 eprintln!("failed to open main window: {err}");
