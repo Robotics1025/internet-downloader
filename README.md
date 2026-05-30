@@ -65,9 +65,13 @@ The extension auto-discovers the API's port (default 6543; falls back to scannin
 |---|---|
 | ![Main](docs/screenshots/main.png) | ![Playlist](docs/screenshots/playlist.png) |
 
-| Settings | Browser extension popup |
+| Built-in player | Browser extension quality picker |
 |---|---|
-| ![Settings](docs/screenshots/settings.png) | ![Extension](docs/screenshots/extension.png) |
+| ![Player](docs/screenshots/player.png) | ![Extension](docs/screenshots/extension.png) |
+
+| Settings | Extension installed in Chrome |
+|---|---|
+| ![Settings](docs/screenshots/settings.png) | ![Extension installed](docs/screenshots/extension-installed.png) |
 
 ## Architecture
 
