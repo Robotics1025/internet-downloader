@@ -1,5 +1,3 @@
-const API_BASE = "http://127.0.0.1:6543";
-
 const urlInput = document.getElementById("url");
 const sendBtn = document.getElementById("send");
 const useCurrentBtn = document.getElementById("useCurrent");
@@ -8,13 +6,16 @@ const statusEl = document.getElementById("status");
 const statusText = document.getElementById("statusText");
 
 async function checkHealth() {
-  try {
-    const r = await fetch(`${API_BASE}/api/health`);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const body = await r.json();
-    statusText.textContent = `Online · v${body.version} · ${body.active_downloads} active`;
+  // Delegate port discovery + the health fetch to background.js so we share a
+  // single cache of the discovered port across popup + content script.
+  const res = await chrome.runtime.sendMessage({ kind: "health" });
+  if (res && res.ok) {
+    const body = res.body;
+    const port = res.base.match(/:(\d+)/)?.[1] ?? "?";
+    statusText.textContent =
+      `Online · :${port} · v${body.version} · ${body.active_downloads} active`;
     statusEl.classList.remove("bad");
-  } catch {
+  } else {
     statusText.textContent = "Offline — start the desktop app";
     statusEl.classList.add("bad");
   }

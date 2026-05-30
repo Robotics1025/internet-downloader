@@ -1,15 +1,69 @@
 // Service worker for DownloadMgr Bridge.
 //
-// Talks to the local desktop API at http://127.0.0.1:6543.
+// Talks to the local desktop API on 127.0.0.1. The default port is 6543, but
+// the packaged AppImage falls back to an OS-assigned port when 6543 is busy
+// (e.g. another instance running). We scan a small range and cache the live
+// port for a short window so subsequent calls are fast.
+//
 // All UI surfaces (popup, content-script overlay, context menu) post messages
 // here so there is a single place that knows how to call the API.
 
-const API_BASE = "http://127.0.0.1:6543";
+const DEFAULT_PORT = 6543;
+const PORT_RANGE = [6543, 6544, 6545, 6546, 6547, 6548, 6549, 6550, 6551, 6552];
+const DISCOVERY_CACHE_TTL_MS = 30_000;
+
+let _cachedPort = null;
+let _cachedAt = 0;
+
+async function _probePort(port, timeoutMs = 800) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/api/health`, {
+      method: "GET",
+      signal: ctrl.signal,
+    });
+    if (!r.ok) return false;
+    const body = await r.json().catch(() => null);
+    // Anything that responds with `{status: "ok", ...}` is plausibly the API.
+    return !!(body && body.status === "ok");
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function discoverPort() {
+  if (_cachedPort && Date.now() - _cachedAt < DISCOVERY_CACHE_TTL_MS) {
+    if (await _probePort(_cachedPort)) return _cachedPort;
+  }
+  // Cache miss / stale — scan the range, default first.
+  for (const port of PORT_RANGE) {
+    if (await _probePort(port)) {
+      _cachedPort = port;
+      _cachedAt = Date.now();
+      return port;
+    }
+  }
+  // Nothing found.
+  _cachedPort = null;
+  throw new Error(
+    `Cannot reach DownloadMgr on 127.0.0.1 ports ${PORT_RANGE[0]}–${PORT_RANGE[PORT_RANGE.length - 1]}. ` +
+    `Is the desktop app running?`,
+  );
+}
+
+async function apiBase() {
+  const port = await discoverPort();
+  return `http://127.0.0.1:${port}`;
+}
 
 async function sendToApp(url) {
+  const base = await apiBase();
   // POST /api/downloads creates the task; auto-categorisation + auto-start
   // happen on the backend, so nothing else is needed from us.
-  const res = await fetch(`${API_BASE}/api/downloads`, {
+  const res = await fetch(`${base}/api/downloads`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url }),
@@ -20,12 +74,13 @@ async function sendToApp(url) {
   }
   const task = await res.json();
   // Kick off the download immediately.
-  await fetch(`${API_BASE}/api/downloads/${task.id}/start`, { method: "POST" });
+  await fetch(`${base}/api/downloads/${task.id}/start`, { method: "POST" });
   return task;
 }
 
 async function probeMedia(url) {
-  const res = await fetch(`${API_BASE}/api/media/probe`, {
+  const base = await apiBase();
+  const res = await fetch(`${base}/api/media/probe`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url }),
@@ -35,7 +90,8 @@ async function probeMedia(url) {
 }
 
 async function sendMediaToApp(url, formatId, category) {
-  const res = await fetch(`${API_BASE}/api/downloads`, {
+  const base = await apiBase();
+  const res = await fetch(`${base}/api/downloads`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -50,7 +106,7 @@ async function sendMediaToApp(url, formatId, category) {
     throw new Error(body.detail || `HTTP ${res.status}`);
   }
   const task = await res.json();
-  await fetch(`${API_BASE}/api/downloads/${task.id}/start`, { method: "POST" });
+  await fetch(`${base}/api/downloads/${task.id}/start`, { method: "POST" });
   return task;
 }
 
@@ -78,12 +134,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         const task = await sendMediaToApp(msg.url, msg.formatId, msg.category);
         notify("Sent to DownloadMgr", msg.title || task.file_name);
         sendResponse({ ok: true, task });
+      } else if (msg.kind === "health") {
+        // Used by the popup to show "Online · vX · N active" without each UI
+        // surface needing its own port discovery.
+        const base = await apiBase();
+        const r = await fetch(`${base}/api/health`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const body = await r.json();
+        sendResponse({ ok: true, base, body });
       } else {
         sendResponse({ ok: false, error: "unknown message kind" });
       }
     } catch (e) {
       const errMsg = e && e.message ? e.message : String(e);
-      notify("DownloadMgr error", errMsg, true);
+      // Suppress notifications for health pings — the popup already shows the
+      // status visually and a desktop toast on every popup open is noisy.
+      if (msg.kind !== "health") notify("DownloadMgr error", errMsg, true);
       sendResponse({ ok: false, error: errMsg });
     }
   })();

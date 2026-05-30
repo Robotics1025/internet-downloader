@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
   "name": "DownloadMgr Bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Send the current page (or any video / link) to your local DownloadMgr desktop app with one click.",
   "permissions": ["activeTab", "contextMenus", "storage", "notifications"],
   "host_permissions": [
-    "http://127.0.0.1:6543/*",
+    "http://127.0.0.1:*/*",
     "<all_urls>"
   ],
   "action": {
