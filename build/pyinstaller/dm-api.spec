@@ -17,6 +17,8 @@ import platform
 import sys
 from pathlib import Path
 
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+
 # PyInstaller invokes this spec from the project root via
 # ``uv run pyinstaller build/pyinstaller/dm-api.spec``. ``SPECPATH`` is the
 # spec's directory.
@@ -68,20 +70,29 @@ a = Analysis(
         (str(PROJECT_ROOT / "apps" / "api" / "src" / "dm_api" / "infrastructure" / "persistence" / "migrations"),
          "dm_api/infrastructure/persistence/migrations"),
         (str(PROJECT_ROOT / "apps" / "api" / "alembic.ini"), "."),
+        # Pull alembic + sqlalchemy template/script files that they importlib
+        # at runtime — PyInstaller misses these without explicit collection.
+        *collect_data_files("alembic"),
+        *collect_data_files("sqlalchemy"),
     ],
     hiddenimports=[
-        # uvicorn pulls these dynamically.
-        "uvicorn.lifespan",
-        "uvicorn.lifespan.on",
-        "uvicorn.loops.auto",
-        "uvicorn.loops.asyncio",
-        "uvicorn.protocols.http.auto",
-        "uvicorn.protocols.http.h11_impl",
-        "uvicorn.protocols.websockets.auto",
-        "uvicorn.protocols.websockets.websockets_impl",
-        # alembic detects migration scripts via importlib at runtime.
-        "alembic.runtime.environment",
-        "alembic.runtime.migration",
+        # Enumerate every submodule of uvicorn / alembic / sqlalchemy /
+        # aiosqlite. On Windows in particular, uvicorn's auto-loader picks
+        # the ProactorEventLoop variant which PyInstaller's analyzer cannot
+        # statically detect — without collect_submodules the sidecar crashes
+        # immediately at startup with `ModuleNotFoundError: No module named
+        # 'uvicorn.loops.asyncio'` (or similar) and the UI shows
+        # "Failed to fetch".
+        *collect_submodules("uvicorn"),
+        *collect_submodules("alembic"),
+        *collect_submodules("sqlalchemy"),
+        *collect_submodules("aiosqlite"),
+        *collect_submodules("fastapi"),
+        # Windows-specific asyncio event loop machinery that uvicorn
+        # transitively imports on win32. Harmless on other platforms.
+        "asyncio.proactor_events",
+        "asyncio.windows_events",
+        "asyncio.windows_utils",
     ],
     hookspath=[],
     hooksconfig={},
