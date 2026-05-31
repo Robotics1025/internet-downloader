@@ -8,9 +8,9 @@
 
 Pro-tool UI, real video extraction, no cloud, no telemetry.
 
-[![Build Linux](https://github.com/Robotics1025/internet_dowanloader/actions/workflows/build-linux.yml/badge.svg)](https://github.com/Robotics1025/internet_dowanloader/actions/workflows/build-linux.yml)
-[![Build Windows](https://github.com/Robotics1025/internet_dowanloader/actions/workflows/build-windows.yml/badge.svg)](https://github.com/Robotics1025/internet_dowanloader/actions/workflows/build-windows.yml)
-[![Latest release](https://img.shields.io/github/v/release/Robotics1025/internet_dowanloader?include_prereleases&label=download)](https://github.com/Robotics1025/internet_dowanloader/releases)
+[![Build Linux](https://github.com/Robotics1025/internet-downloader/actions/workflows/build-linux.yml/badge.svg)](https://github.com/Robotics1025/internet-downloader/actions/workflows/build-linux.yml)
+[![Build Windows](https://github.com/Robotics1025/internet-downloader/actions/workflows/build-windows.yml/badge.svg)](https://github.com/Robotics1025/internet-downloader/actions/workflows/build-windows.yml)
+[![Latest release](https://img.shields.io/github/v/release/Robotics1025/internet-downloader?include_prereleases&label=download)](https://github.com/Robotics1025/internet-downloader/releases)
 
 </div>
 
@@ -33,7 +33,7 @@ A native desktop app for queuing, organising, and downloading video / audio / fi
 
 ## Download
 
-Grab the build for your OS from the [**Releases page**](https://github.com/Robotics1025/internet_dowanloader/releases).
+Grab the build for your OS from the [**Releases page**](https://github.com/Robotics1025/internet-downloader/releases).
 
 | OS | File | Install |
 |---|---|---|
@@ -156,8 +156,8 @@ Dependency rule: `presentation → application → domain ← infrastructure`. T
 
 ```bash
 # 1. Clone
-git clone https://github.com/Robotics1025/internet_dowanloader
-cd internet_dowanloader
+git clone https://github.com/Robotics1025/internet-downloader
+cd internet-downloader
 
 # 2. Backend deps
 cd apps/api && uv sync && cd ../..
@@ -202,7 +202,7 @@ cd apps/shell && cargo tauri dev
 ## Project structure
 
 ```
-internet_dowanloader/
+internet-downloader/
 ├── apps/
 │   ├── api/                  Python FastAPI backend (the sidecar)
 │   ├── desktop/              React UI served by the Tauri shell
@@ -255,6 +255,6 @@ No telemetry, no cloud sync, no remote management. Your downloads, your machine.
 
 Made with ❤️ for people who'd rather their downloads not be SaaS.
 
-[Report a bug](https://github.com/Robotics1025/internet_dowanloader/issues) · [Request a feature](https://github.com/Robotics1025/internet_dowanloader/issues) · [Releases](https://github.com/Robotics1025/internet_dowanloader/releases)
+[Report a bug](https://github.com/Robotics1025/internet-downloader/issues) · [Request a feature](https://github.com/Robotics1025/internet-downloader/issues) · [Releases](https://github.com/Robotics1025/internet-downloader/releases)
 
 </div>
