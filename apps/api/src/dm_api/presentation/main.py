@@ -100,12 +100,11 @@ def main(argv: list[str] | None = None) -> None:
     # the JSON file handler.
     config = uvicorn.Config(
         create_app(),
-        fd=sock.fileno(),
         log_level="info",
         log_config=None,
     )
     server = uvicorn.Server(config)
-    server.run()
+    server.run(sockets=[sock])
 
 
 if __name__ == "__main__":
