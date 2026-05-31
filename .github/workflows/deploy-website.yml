@@ -1,0 +1,61 @@
+name: Deploy Website to GitHub Pages
+
+# Trigger on every push to main that touches the website, plus manual runs.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/website/**'
+      - 'docs/screenshots/**'
+      - '.github/workflows/deploy-website.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+# GitHub Pages requires write access to the special `github-pages` environment.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # Copy the latest screenshots from docs/ into the website's assets dir,
+      # so the README and the marketing site share a single source of truth.
+      - name: Sync screenshots into website assets
+        run: |
+          mkdir -p apps/website/assets/screenshots
+          # Don't fail if docs/screenshots is empty — just skip.
+          if [ -d docs/screenshots ] && [ -n "$(ls -A docs/screenshots 2>/dev/null)" ]; then
+            cp docs/screenshots/*.png apps/website/assets/screenshots/ 2>/dev/null || true
+          fi
+          # Logo from the desktop app — single source of truth.
+          mkdir -p apps/website/assets
+          cp apps/desktop/public/logo.png apps/website/assets/logo.png
+          ls -la apps/website/assets/ apps/website/assets/screenshots/
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/website
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

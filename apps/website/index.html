@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DownloadMgr — The Ultimate Desktop Download Manager</title>
+  <meta name="description" content="A local-first desktop download manager with a browser companion. Open source. No cloud. No telemetry. Download any video, audio or file from anywhere on the web." />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="DownloadMgr — The Ultimate Desktop Download Manager" />
+  <meta property="og:description" content="Local-first, open-source download manager with a Chrome companion. No cloud. No telemetry." />
+  <meta property="og:image" content="./assets/screenshots/main.png" />
+  <meta property="og:url" content="https://robotics1025.github.io/internet_dowanloader/" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="icon" type="image/png" href="./assets/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] },
+          colors: {
+            'dm-bg': '#0a0b14',
+            'dm-bg-2': '#0e1020',
+            'dm-card': 'rgba(17,19,31,0.7)',
+            'dm-border': 'rgba(255,255,255,0.08)',
+            'dm-border-strong': 'rgba(255,255,255,0.14)',
+            'dm-fg': '#e8eaf2',
+            'dm-fg-dim': '#8a8fa3',
+            'dm-fg-tertiary': '#5a5f73',
+            'dm-violet': '#7C6AF7',
+            'dm-violet-2': '#a78bfa',
+            'dm-cyan': '#22d3ee',
+            'dm-green': '#34d399',
+            'dm-amber': '#fbbf24',
+            'dm-pink': '#f472b6',
+            'dm-blue': '#5BA8F5',
+          },
+          keyframes: {
+            glow: {
+              '0%, 100%': { opacity: '0.5' },
+              '50%':      { opacity: '0.8' },
+            },
+            fadeUp: {
+              '0%':   { opacity: '0', transform: 'translateY(16px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+          },
+          animation: {
+            glow:    'glow 4s ease-in-out infinite',
+            'fade-up': 'fadeUp 0.6s ease-out both',
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    html { scroll-behavior: smooth; }
+    body {
+      background:
+        radial-gradient(1200px 600px at 80% -10%, rgba(124,106,247,0.18), transparent 60%),
+        radial-gradient(800px 500px at -10% 30%, rgba(34,211,238,0.10), transparent 60%),
+        linear-gradient(180deg, #0a0b14 0%, #050610 100%);
+      background-attachment: fixed;
+    }
+    .gradient-text {
+      background: linear-gradient(90deg, #a78bfa 0%, #818cf8 40%, #60a5fa 80%, #22d3ee 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .grain::after {
+      content: "";
+      position: fixed; inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' /></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.06'/></svg>");
+      mix-blend-mode: overlay;
+      z-index: 0;
+    }
+    /* Carousel snap */
+    .snap-row { scroll-snap-type: x mandatory; }
+    .snap-row > * { scroll-snap-align: start; }
+    /* Hide scrollbar in carousel */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+
+<body class="bg-dm-bg text-dm-fg font-sans antialiased grain selection:bg-dm-violet/40">
+
+  <!-- ─────────────────────────── HEADER ─────────────────────────── -->
+  <header class="sticky top-0 z-50 backdrop-blur-md bg-dm-bg/70 border-b border-dm-border">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center gap-8">
+      <a href="#" class="flex items-center gap-2.5 shrink-0">
+        <img src="./assets/logo.png" alt="DownloadMgr" class="w-9 h-9 rounded-lg" />
+        <span class="font-bold text-lg tracking-tight">DownloadMgr</span>
+      </a>
+      <nav class="hidden md:flex items-center gap-7 text-sm text-dm-fg-dim flex-1">
+        <a href="#home" class="text-dm-fg border-b-2 border-dm-violet pb-1 transition-colors">Home</a>
+        <a href="#features" class="hover:text-dm-fg transition-colors">Features</a>
+        <a href="#showcase" class="hover:text-dm-fg transition-colors">Screenshots</a>
+        <a href="#download" class="hover:text-dm-fg transition-colors">Download</a>
+        <a href="https://github.com/Robotics1025/internet_dowanloader/releases" target="_blank" rel="noopener" class="hover:text-dm-fg transition-colors">Changelog</a>
+        <a href="https://github.com/Robotics1025/internet_dowanloader#readme" target="_blank" rel="noopener" class="hover:text-dm-fg transition-colors">Docs</a>
+        <a href="https://github.com/Robotics1025/internet_dowanloader" target="_blank" rel="noopener" class="hover:text-dm-fg transition-colors">GitHub</a>
+      </nav>
+      <a href="https://github.com/Robotics1025/internet_dowanloader" target="_blank" rel="noopener"
+         class="hidden sm:flex items-center gap-2 px-3 h-9 rounded-lg border border-dm-border-strong bg-dm-card hover:bg-white/5 transition-colors text-sm">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z" /></svg>
+        <span class="text-dm-fg-dim">Star</span>
+        <span class="font-semibold">★</span>
+      </a>
+      <a href="#download"
+         class="inline-flex items-center gap-2 px-4 h-9 rounded-lg bg-gradient-to-r from-dm-violet to-indigo-500 hover:from-dm-violet-2 hover:to-indigo-400 text-white text-sm font-semibold shadow-lg shadow-dm-violet/30 transition-all">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1v9M4 7l4 4 4-4M2 14h12" /></svg>
+        Download Now
+      </a>
+    </div>
+  </header>
+
+  <!-- ─────────────────────────── HERO ─────────────────────────── -->
+  <section id="home" class="relative max-w-7xl mx-auto px-6 pt-20 pb-28">
+    <div class="grid lg:grid-cols-2 gap-14 items-center">
+      <!-- Left: copy -->
+      <div class="animate-fade-up">
+        <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-dm-violet/15 border border-dm-violet/40 text-dm-violet-2 text-xs font-semibold tracking-wide uppercase">
+          <span class="w-1.5 h-1.5 rounded-full bg-dm-violet-2 animate-pulse"></span>
+          New release · v0.1.1 is out
+        </span>
+        <h1 class="mt-6 text-5xl md:text-6xl font-extrabold leading-[1.05] tracking-tight">
+          The Ultimate<br />
+          Desktop Download<br />
+          <span class="gradient-text">Manager</span>
+        </h1>
+        <p class="mt-6 text-lg text-dm-fg-dim max-w-xl leading-relaxed">
+          A local-first download manager with a browser companion. Download anything from the internet — fast, organized, and completely private.
+        </p>
+        <div class="mt-7 flex flex-wrap gap-2 text-xs font-medium">
+          <span class="px-3 py-1.5 rounded-full bg-dm-card border border-dm-border flex items-center gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" class="text-dm-cyan"><path d="M14 8a6 6 0 1 1-12 0 6 6 0 0 1 12 0Zm-9 0h8M9 5l3 3-3 3"/></svg>
+            No Cloud
+          </span>
+          <span class="px-3 py-1.5 rounded-full bg-dm-card border border-dm-border flex items-center gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" class="text-dm-green"><path d="M8 14s5-2 5-7V3l-5-2-5 2v4c0 5 5 7 5 7Z"/></svg>
+            No Telemetry
+          </span>
+          <span class="px-3 py-1.5 rounded-full bg-dm-card border border-dm-border flex items-center gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" class="text-dm-pink"><circle cx="8" cy="8" r="6.5"/><path d="M3.5 3.5l9 9"/></svg>
+            No Ads
+          </span>
+          <span class="px-3 py-1.5 rounded-full bg-dm-card border border-dm-border flex items-center gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" class="text-dm-amber"><path d="M6 4l-3 4 3 4M10 4l3 4-3 4"/></svg>
+            100% Open Source
+          </span>
+        </div>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a href="https://github.com/Robotics1025/internet_dowanloader/releases/latest" target="_blank" rel="noopener"
+             class="group inline-flex items-center gap-3 px-5 py-3 rounded-xl bg-gradient-to-r from-dm-violet to-indigo-500 hover:from-dm-violet-2 hover:to-indigo-400 text-white font-semibold shadow-lg shadow-dm-violet/30 transition-all">
+            <div class="w-9 h-9 rounded-lg bg-white/20 grid place-items-center">
+              <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor"><path d="M8 1c2 4 5 5 5 9a5 5 0 1 1-10 0c0-4 3-5 5-9Z"/></svg>
+            </div>
+            <div class="text-left">
+              <div class="text-sm font-semibold leading-tight">Download for Linux</div>
+              <div class="text-xs text-white/70 leading-tight">Latest release</div>
+            </div>
+          </a>
+          <a href="#download"
+             class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-dm-card border border-dm-border-strong hover:bg-white/5 transition-colors font-medium">
+            Other Platforms
+          </a>
+          <a href="https://github.com/Robotics1025/internet_dowanloader" target="_blank" rel="noopener"
+             class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-dm-card border border-dm-border-strong hover:bg-white/5 transition-colors font-medium">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8 0a8 8 0 0 0-2.5 15.6c.4.1.6-.2.6-.4v-1.5C3.9 14.2 3.4 13 3.4 13c-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.4.7.1-.5.3-.9.5-1.1-1.8-.2-3.7-.9-3.7-4 0-.9.3-1.6.8-2.2-.1-.2-.4-1 .1-2.2 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.2.2 2 .1 2.2.5.6.8 1.3.8 2.2 0 3.1-1.9 3.8-3.7 4 .3.3.5.7.5 1.5v2.2c0 .2.2.5.6.4A8 8 0 0 0 8 0Z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+      </div>
+
+      <!-- Right: app preview screenshot -->
+      <div class="relative animate-fade-up">
+        <div class="absolute -inset-10 bg-gradient-to-tr from-dm-violet/30 via-indigo-500/20 to-dm-cyan/20 rounded-3xl blur-3xl animate-glow"></div>
+        <div class="relative rounded-2xl border border-dm-border-strong overflow-hidden shadow-2xl shadow-black/50">
+          <img src="./assets/screenshots/main.png" alt="DownloadMgr main window" class="w-full h-auto block" loading="eager" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── FEATURES ─────────────────────────── -->
+  <section id="features" class="relative max-w-7xl mx-auto px-6 py-20">
+    <h2 class="text-center text-3xl md:text-4xl font-bold tracking-tight">
+      Powerful <span class="gradient-text">features</span> for a seamless experience
+    </h2>
+    <div class="mt-14 grid sm:grid-cols-2 lg:grid-cols-5 gap-5">
+      <!-- card -->
+      <div class="group p-6 rounded-2xl bg-dm-card border border-dm-border hover:border-dm-violet/50 transition-colors">
+        <div class="w-12 h-12 rounded-xl bg-dm-violet/20 border border-dm-violet/40 grid place-items-center text-dm-violet-2 mb-4 group-hover:scale-110 transition-transform">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7v8l10-12h-7V2z"/></svg>
+        </div>
+        <h3 class="text-base font-semibold mb-1.5">Fast &amp; Powerful</h3>
+        <p class="text-sm text-dm-fg-dim leading-relaxed">Multi-threaded downloads that push your internet to the limit.</p>
+      </div>
+
+      <div class="group p-6 rounded-2xl bg-dm-card border border-dm-border hover:border-dm-green/50 transition-colors">
+        <div class="w-12 h-12 rounded-xl bg-dm-green/20 border border-dm-green/40 grid place-items-center text-dm-green mb-4 group-hover:scale-110 transition-transform">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3 class="text-base font-semibold mb-1.5">Safe &amp; Secure</h3>
+        <p class="text-sm text-dm-fg-dim leading-relaxed">No ads, no malware, no tracking. 100% safe and private.</p>
+      </div>
+
+      <div class="group p-6 rounded-2xl bg-dm-card border border-dm-border hover:border-dm-amber/50 transition-colors">
+        <div class="w-12 h-12 rounded-xl bg-dm-amber/20 border border-dm-amber/40 grid place-items-center text-dm-amber mb-4 group-hover:scale-110 transition-transform">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l2-3h6l2 3h8v12a2 2 0 0 1-2 2H3V7z"/></svg>
+        </div>
+        <h3 class="text-base font-semibold mb-1.5">Organized Downloads</h3>
+        <p class="text-sm text-dm-fg-dim leading-relaxed">Keep your files neat, organized and easy to find.</p>
+      </div>
+
+      <div class="group p-6 rounded-2xl bg-dm-card border border-dm-border hover:border-dm-cyan/50 transition-colors">
+        <div class="w-12 h-12 rounded-xl bg-dm-cyan/20 border border-dm-cyan/40 grid place-items-center text-dm-cyan mb-4 group-hover:scale-110 transition-transform">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
+        <h3 class="text-base font-semibold mb-1.5">Anything from Internet</h3>
+        <p class="text-sm text-dm-fg-dim leading-relaxed">Videos, audio, playlists, images, documents &amp; more.</p>
+      </div>
+
+      <div class="group p-6 rounded-2xl bg-dm-card border border-dm-border hover:border-dm-pink/50 transition-colors">
+        <div class="w-12 h-12 rounded-xl bg-dm-pink/20 border border-dm-pink/40 grid place-items-center text-dm-pink mb-4 group-hover:scale-110 transition-transform">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12.572L12 20l-7.5-7.428A5 5 0 1 1 12 6.006a5 5 0 1 1 7.5 6.566z"/></svg>
+        </div>
+        <h3 class="text-base font-semibold mb-1.5">Browser Companion</h3>
+        <p class="text-sm text-dm-fg-dim leading-relaxed">Smart extension to detect and add downloads easily.</p>
+      </div>
+    </div>
+
+    <!-- Privacy banner -->
+    <div class="mt-12 rounded-2xl p-6 bg-gradient-to-r from-dm-violet/15 via-indigo-500/10 to-dm-cyan/10 border border-dm-violet/30 flex flex-wrap items-center gap-6">
+      <div class="w-12 h-12 rounded-xl bg-dm-violet/30 border border-dm-violet/50 grid place-items-center text-dm-violet-2 shrink-0">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="text-base font-semibold">Local-first. Private by design.</div>
+        <div class="text-sm text-dm-fg-dim">Your data stays on your device. We don't collect anything. <span class="italic">Ever.</span></div>
+      </div>
+      <a href="https://github.com/Robotics1025/internet_dowanloader#readme" target="_blank" rel="noopener" class="text-sm font-medium text-dm-violet-2 hover:text-dm-cyan transition-colors flex items-center gap-1.5">
+        Learn more about our privacy
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+      </a>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── SHOWCASE ─────────────────────────── -->
+  <section id="showcase" class="relative max-w-7xl mx-auto px-6 py-20">
+    <h2 class="text-center text-3xl md:text-4xl font-bold tracking-tight">
+      See <span class="gradient-text">DownloadMgr</span> in action
+    </h2>
+    <div class="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <figure class="rounded-2xl bg-dm-card border border-dm-border overflow-hidden hover:border-dm-violet/40 transition-colors">
+        <div class="aspect-video bg-dm-bg-2 overflow-hidden">
+          <img src="./assets/screenshots/player.png" alt="Built-in player" class="w-full h-full object-cover" loading="lazy" />
+        </div>
+        <figcaption class="p-5 text-center">
+          <div class="font-semibold">Built-in Player</div>
+          <div class="text-xs text-dm-fg-dim mt-1">Preview your videos while downloading.</div>
+        </figcaption>
+      </figure>
+
+      <figure class="rounded-2xl bg-dm-card border border-dm-border overflow-hidden hover:border-dm-cyan/40 transition-colors">
+        <div class="aspect-video bg-dm-bg-2 overflow-hidden">
+          <img src="./assets/screenshots/extension.png" alt="Quality picker" class="w-full h-full object-cover" loading="lazy" />
+        </div>
+        <figcaption class="p-5 text-center">
+          <div class="font-semibold">Quality Picker</div>
+          <div class="text-xs text-dm-fg-dim mt-1">Choose the best quality before downloading.</div>
+        </figcaption>
+      </figure>
+
+      <figure class="rounded-2xl bg-dm-card border border-dm-border overflow-hidden hover:border-dm-green/40 transition-colors">
+        <div class="aspect-video bg-dm-bg-2 overflow-hidden">
+          <img src="./assets/screenshots/extension-installed.png" alt="Smart extension" class="w-full h-full object-cover" loading="lazy" />
+        </div>
+        <figcaption class="p-5 text-center">
+          <div class="font-semibold">Smart Extension</div>
+          <div class="text-xs text-dm-fg-dim mt-1">Detect downloads on any site with one click.</div>
+        </figcaption>
+      </figure>
+
+      <figure class="rounded-2xl bg-dm-card border border-dm-border overflow-hidden hover:border-dm-pink/40 transition-colors">
+        <div class="aspect-video bg-dm-bg-2 overflow-hidden">
+          <img src="./assets/screenshots/playlist.png" alt="Dark beautiful UI" class="w-full h-full object-cover" loading="lazy" />
+        </div>
+        <figcaption class="p-5 text-center">
+          <div class="font-semibold">Dark &amp; Beautiful UI</div>
+          <div class="text-xs text-dm-fg-dim mt-1">Clean, modern and easy on the eyes.</div>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── DOWNLOAD ─────────────────────────── -->
+  <section id="download" class="relative max-w-7xl mx-auto px-6 py-24">
+    <h2 class="text-center text-3xl md:text-4xl font-bold tracking-tight">
+      Ready to <span class="gradient-text">supercharge</span> your downloads?
+    </h2>
+    <p class="text-center text-dm-fg-dim mt-3">Download the latest release and experience the difference.</p>
+
+    <div class="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <!-- Linux -->
+      <a href="https://github.com/Robotics1025/internet_dowanloader/releases/latest" target="_blank" rel="noopener"
+         class="group p-6 rounded-2xl bg-dm-card border border-dm-border hover:border-dm-amber/50 transition-all hover:-translate-y-1">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-11 h-11 rounded-xl bg-dm-amber/20 border border-dm-amber/40 grid place-items-center text-2xl">🐧</div>
+          <div>
+            <div class="font-semibold">Linux</div>
+            <div class="text-xs text-dm-fg-dim">AppImage / .deb / .rpm · 64-bit</div>
+          </div>
+        </div>
+        <div class="px-3 py-2 rounded-lg bg-white/5 border border-dm-border text-sm font-medium text-center">Download Linux build</div>
+        <div class="mt-2 text-center text-xs text-dm-fg-dim group-hover:text-dm-violet-2 transition-colors">Other Linux options</div>
+      </a>
+
+      <!-- Windows -->
+      <a href="https://github.com/Robotics1025/internet_dowanloader/releases/latest" target="_blank" rel="noopener"
+         class="group p-6 rounded-2xl bg-dm-card border border-dm-border hover:border-dm-blue/50 transition-all hover:-translate-y-1">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-11 h-11 rounded-xl bg-dm-blue/20 border border-dm-blue/40 grid place-items-center text-dm-blue">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2 4.5L10.5 3v9H2zM11.5 2.8L22 1v11H11.5zM2 13h8.5v9L2 20.5zM11.5 13H22v11l-10.5-1.5z"/></svg>
+          </div>
+          <div>
+            <div class="font-semibold">Windows</div>
+            <div class="text-xs text-dm-fg-dim">Installer · 64-bit</div>
+          </div>
+        </div>
+        <div class="px-3 py-2 rounded-lg bg-white/5 border border-dm-border text-sm font-medium text-center">Download .exe</div>
+        <div class="mt-2 text-center text-xs text-dm-fg-dim group-hover:text-dm-violet-2 transition-colors">.msi version</div>
+      </a>
+
+      <!-- macOS -->
+      <a href="https://github.com/Robotics1025/internet_dowanloader/releases/latest" target="_blank" rel="noopener"
+         class="group p-6 rounded-2xl bg-dm-card border border-dm-border hover:border-white/40 transition-all hover:-translate-y-1">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-11 h-11 rounded-xl bg-white/10 border border-white/20 grid place-items-center text-white">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+          </div>
+          <div>
+            <div class="font-semibold">macOS</div>
+            <div class="text-xs text-dm-fg-dim">Universal · Intel + M-series</div>
+          </div>
+        </div>
+        <div class="px-3 py-2 rounded-lg bg-white/5 border border-dm-border text-sm font-medium text-center text-dm-fg-dim">Coming soon</div>
+        <div class="mt-2 text-center text-xs text-dm-fg-dim">macOS CI in progress</div>
+      </a>
+
+      <!-- Source -->
+      <a href="https://github.com/Robotics1025/internet_dowanloader" target="_blank" rel="noopener"
+         class="group p-6 rounded-2xl bg-dm-card border border-dm-border hover:border-dm-violet/50 transition-all hover:-translate-y-1">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-11 h-11 rounded-xl bg-dm-violet/20 border border-dm-violet/40 grid place-items-center text-dm-violet-2">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          </div>
+          <div>
+            <div class="font-semibold">Source Code</div>
+            <div class="text-xs text-dm-fg-dim">Latest from GitHub</div>
+          </div>
+        </div>
+        <div class="px-3 py-2 rounded-lg bg-white/5 border border-dm-border text-sm font-medium text-center">View on GitHub</div>
+        <div class="mt-2 text-center text-xs text-dm-fg-dim group-hover:text-dm-violet-2 transition-colors">MIT license</div>
+      </a>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── FOOTER ─────────────────────────── -->
+  <footer class="relative max-w-7xl mx-auto px-6 pt-10 pb-14 border-t border-dm-border">
+    <div class="flex flex-wrap items-center justify-between gap-6 pb-10 border-b border-dm-border text-sm text-dm-fg-dim">
+      <span class="flex items-center gap-2">
+        <span class="text-dm-violet-2">&lt;/&gt;</span>
+        100% Open Source
+      </span>
+      <span class="flex items-center gap-2">
+        📜 MIT License
+      </span>
+      <span class="flex items-center gap-2">
+        Built with <span class="text-dm-pink">❤</span> by
+        <a href="https://github.com/Robotics1025" target="_blank" rel="noopener" class="text-dm-fg hover:text-dm-violet-2 transition-colors">Robotics1025</a>
+      </span>
+      <a href="https://github.com/Robotics1025/internet_dowanloader" target="_blank" rel="noopener"
+         class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dm-border bg-dm-card hover:bg-white/5 transition-colors">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M8 0a8 8 0 0 0-2.5 15.6c.4.1.6-.2.6-.4v-1.5C3.9 14.2 3.4 13 3.4 13c-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.4.7.1-.5.3-.9.5-1.1-1.8-.2-3.7-.9-3.7-4 0-.9.3-1.6.8-2.2-.1-.2-.4-1 .1-2.2 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.2.2 2 .1 2.2.5.6.8 1.3.8 2.2 0 3.1-1.9 3.8-3.7 4 .3.3.5.7.5 1.5v2.2c0 .2.2.5.6.4A8 8 0 0 0 8 0Z"/></svg>
+        Star us on GitHub
+      </a>
+    </div>
+
+    <div class="grid md:grid-cols-4 gap-10 mt-10 text-sm">
+      <div>
+        <div class="flex items-center gap-2 mb-4">
+          <img src="./assets/logo.png" alt="" class="w-8 h-8 rounded-md" />
+          <span class="font-bold">DownloadMgr</span>
+        </div>
+        <p class="text-dm-fg-dim leading-relaxed">A local-first desktop download manager with a browser companion.</p>
+      </div>
+      <div>
+        <div class="font-semibold mb-3">Product</div>
+        <ul class="space-y-2 text-dm-fg-dim">
+          <li><a href="#features" class="hover:text-dm-fg transition-colors">Features</a></li>
+          <li><a href="#showcase" class="hover:text-dm-fg transition-colors">Screenshots</a></li>
+          <li><a href="#download" class="hover:text-dm-fg transition-colors">Download</a></li>
+          <li><a href="https://github.com/Robotics1025/internet_dowanloader/releases" target="_blank" rel="noopener" class="hover:text-dm-fg transition-colors">Changelog</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="font-semibold mb-3">Resources</div>
+        <ul class="space-y-2 text-dm-fg-dim">
+          <li><a href="https://github.com/Robotics1025/internet_dowanloader#readme" target="_blank" rel="noopener" class="hover:text-dm-fg transition-colors">Documentation</a></li>
+          <li><a href="https://github.com/Robotics1025/internet_dowanloader" target="_blank" rel="noopener" class="hover:text-dm-fg transition-colors">GitHub Repository</a></li>
+          <li><a href="https://github.com/Robotics1025/internet_dowanloader/issues/new" target="_blank" rel="noopener" class="hover:text-dm-fg transition-colors">Report a Bug</a></li>
+          <li><a href="https://github.com/Robotics1025/internet_dowanloader/issues/new" target="_blank" rel="noopener" class="hover:text-dm-fg transition-colors">Request a Feature</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="font-semibold mb-3">Legal</div>
+        <ul class="space-y-2 text-dm-fg-dim">
+          <li><a href="https://github.com/Robotics1025/internet_dowanloader#license" target="_blank" rel="noopener" class="hover:text-dm-fg transition-colors">Privacy Policy</a></li>
+          <li><a href="https://github.com/Robotics1025/internet_dowanloader#license" target="_blank" rel="noopener" class="hover:text-dm-fg transition-colors">Terms of Use</a></li>
+          <li><a href="https://github.com/Robotics1025/internet_dowanloader/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-dm-fg transition-colors">MIT License</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-12 pt-6 border-t border-dm-border text-center text-xs text-dm-fg-tertiary">
+      © <span id="copyright-year"></span> DownloadMgr. All rights reserved.
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('copyright-year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
