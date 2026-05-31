@@ -55,9 +55,14 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             apps/shell/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('apps/shell/Cargo.lock') }}
+          # v3 = invalidated after the repo rename from internet_dowanloader →
+          # internet-downloader. Old cached Tauri permission TOML files held
+          # absolute paths to the old directory and broke every build until
+          # we threw the cache away. Bump again whenever the workspace path
+          # changes.
+          key: ${{ runner.os }}-cargo-v3-${{ hashFiles('apps/shell/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
+            ${{ runner.os }}-cargo-v3-
 
       - name: Install uv (Python package manager)
         shell: pwsh

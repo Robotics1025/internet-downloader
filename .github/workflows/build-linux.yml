@@ -77,9 +77,11 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             apps/shell/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('apps/shell/Cargo.lock') }}
+          # v2 = invalidated after repo rename (internet_dowanloader -> internet-downloader)
+          # to clear out old absolute paths in cached build artifacts.
+          key: ${{ runner.os }}-cargo-v2-${{ hashFiles('apps/shell/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
+            ${{ runner.os }}-cargo-v2-
 
       - name: Install uv
         run: |
