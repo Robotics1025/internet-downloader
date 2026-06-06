@@ -11,7 +11,9 @@ it transparently.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from collections.abc import Callable
+from uuid import UUID
 
 from dm_api.application.ports.segment_worker import SegmentWorker
 from dm_api.domain.entities.download_task import DownloadTask
@@ -28,7 +30,7 @@ class DownloadRunner:
     ) -> None:
         self._worker_factory = worker_factory
         self._media_worker_factory = media_worker_factory
-        self._tasks: set[asyncio.Task[None]] = set()
+        self._tasks: dict[UUID, asyncio.Task[None]] = {}
         self._semaphore = asyncio.Semaphore(max_parallel)
         self._max_parallel = max_parallel
 
@@ -42,10 +44,28 @@ class DownloadRunner:
             async with self._semaphore:
                 await worker.run(task)
 
+        tid = task.id
+
+        def _remove_task(_t: asyncio.Task[None]) -> None:
+            self._tasks.pop(tid, None)
+
         bg = asyncio.create_task(_gated_run(), name=f"download-{task.id}")
-        self._tasks.add(bg)
-        bg.add_done_callback(self._tasks.discard)
+        self._tasks[task.id] = bg
+        bg.add_done_callback(_remove_task)
+
+    async def stop(self, download_id: UUID) -> bool:
+        """Cancel the running task for this download, awaiting its cleanup.
+
+        Returns True if a task was running, False otherwise.
+        """
+        bg = self._tasks.get(download_id)
+        if bg is None:
+            return False
+        bg.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await bg
+        return True
 
     async def wait_idle(self) -> None:
         if self._tasks:
-            await asyncio.gather(*list(self._tasks), return_exceptions=True)
+            await asyncio.gather(*list(self._tasks.values()), return_exceptions=True)
