@@ -56,9 +56,11 @@ class DownloadRunner:
     async def stop(self, download_id: UUID) -> bool:
         """Cancel the running task for this download, awaiting its cleanup.
 
-        Returns True if a task was running, False otherwise.
+        Pops the entry before awaiting so two concurrent callers can't both
+        claim to have stopped the same download. Returns True if a task was
+        running, False otherwise.
         """
-        bg = self._tasks.get(download_id)
+        bg = self._tasks.pop(download_id, None)
         if bg is None:
             return False
         bg.cancel()

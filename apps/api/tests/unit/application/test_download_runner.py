@@ -96,11 +96,13 @@ async def test_stop_cancels_a_running_download() -> None:
     task = _make_task()
     runner.spawn(task)
     await asyncio.wait_for(started.wait(), timeout=1.0)
+    bg = runner._tasks[task.id]
 
     stopped = await runner.stop(task.id)
 
     assert stopped is True
     assert task.id not in runner._tasks
+    assert bg.cancelled()
 
 
 async def test_stop_unknown_id_returns_false() -> None:
