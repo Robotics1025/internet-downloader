@@ -149,6 +149,28 @@ async def start_download(request: Request, id: UUID) -> DownloadDTO:
     return DownloadDTO.from_entity(task)
 
 
+@router.post("/{id}/pause", response_model=DownloadDTO)
+async def pause_download(request: Request, id: UUID) -> DownloadDTO:
+    repo = request.app.state.repo
+    runner = request.app.state.runner
+    task = await repo.get_by_id(id)
+    if task is None:
+        raise HTTPException(status_code=404, detail=f"download {id} not found")
+    if task.status not in _ACTIVE_STATUSES:
+        raise HTTPException(
+            status_code=409,
+            detail=f"download is {task.status.value}; only active downloads can be paused",
+        )
+    await runner.stop(id)
+    # Re-read: the worker may have finished or failed during stop(); don't
+    # downgrade a terminal status to paused.
+    task = await repo.get_by_id(id)
+    if task is not None and task.status in _ACTIVE_STATUSES:
+        task.status = DownloadStatus.PAUSED
+        await repo.update(task)
+    return DownloadDTO.from_entity(task)
+
+
 @router.post("/cleanup", status_code=200)
 async def cleanup_stuck(request: Request) -> dict:
     """Mark every still-pending/downloading task as failed and remove the

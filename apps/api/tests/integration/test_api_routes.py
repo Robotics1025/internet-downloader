@@ -32,7 +32,7 @@ async def test_post_create_then_get(client: AsyncClient) -> None:
     assert body["url"] == "https://example.com/file.zip"
     assert body["file_name"] == "file.zip"
     assert body["status"] == "pending"
-    assert body["category"] == "general"
+    assert body["category"] == "archive"
     download_id = body["id"]
 
     get_response = await client.get(f"/api/downloads/{download_id}")
@@ -41,18 +41,19 @@ async def test_post_create_then_get(client: AsyncClient) -> None:
 
 
 @pytest.mark.integration
-async def test_post_with_explicit_save_path_and_category(client: AsyncClient) -> None:
+async def test_post_with_explicit_save_path_and_category(client: AsyncClient, tmp_path: Path) -> None:
+    custom_path = tmp_path / "custom_save"
     response = await client.post(
         "/api/downloads",
         json={
             "url": "https://example.com/movie.mp4",
-            "save_path": "/mnt/external/dl",
+            "save_path": str(custom_path),
             "category": "video",
         },
     )
     assert response.status_code == 201
     body = response.json()
-    assert body["save_path"] == "/mnt/external/dl"
+    assert body["save_path"] == str(custom_path / "Videos")
     assert body["category"] == "video"
 
 
@@ -123,3 +124,45 @@ async def test_health_active_downloads_is_zero_when_all_pending(
     response = await client.get("/api/health")
     assert response.status_code == 200
     assert response.json()["active_downloads"] == 0
+
+
+@pytest.mark.integration
+async def test_pause_active_download_sets_paused(client: AsyncClient) -> None:
+    from uuid import UUID
+
+    from dm_api.domain.value_objects.download_status import DownloadStatus
+
+    # Create a download (starts as pending)
+    create_resp = await client.post(
+        "/api/downloads",
+        json={"url": "https://example.com/file.zip"},
+    )
+    assert create_resp.status_code == 201
+    download_id = create_resp.json()["id"]
+
+    # Force status to DOWNLOADING via the repo that app.state uses
+    repo = client._transport.app.state.repo  # type: ignore[attr-defined]
+    task = await repo.get_by_id(UUID(download_id))
+    assert task is not None
+    task.status = DownloadStatus.DOWNLOADING
+    await repo.update(task)
+
+    # Pause the active download
+    pause_resp = await client.post(f"/api/downloads/{download_id}/pause")
+    assert pause_resp.status_code == 200, pause_resp.text
+    assert pause_resp.json()["status"] == "paused"
+
+
+@pytest.mark.integration
+async def test_pause_non_active_returns_409(client: AsyncClient) -> None:
+    # Create a download — status is PENDING, which is not in _ACTIVE_STATUSES
+    create_resp = await client.post(
+        "/api/downloads",
+        json={"url": "https://example.com/file.zip"},
+    )
+    assert create_resp.status_code == 201
+    download_id = create_resp.json()["id"]
+
+    # Pausing a non-active (pending) download must return 409
+    pause_resp = await client.post(f"/api/downloads/{download_id}/pause")
+    assert pause_resp.status_code == 409
