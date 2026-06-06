@@ -165,7 +165,9 @@ async def pause_download(request: Request, id: UUID) -> DownloadDTO:
     # Re-read: the worker may have finished or failed during stop(); don't
     # downgrade a terminal status to paused.
     task = await repo.get_by_id(id)
-    if task is not None and task.status in _ACTIVE_STATUSES:
+    if task is None:
+        raise HTTPException(status_code=404, detail=f"download {id} not found")
+    if task.status in _ACTIVE_STATUSES:
         task.status = DownloadStatus.PAUSED
         await repo.update(task)
     return DownloadDTO.from_entity(task)

@@ -166,3 +166,29 @@ async def test_pause_non_active_returns_409(client: AsyncClient) -> None:
     # Pausing a non-active (pending) download must return 409
     pause_resp = await client.post(f"/api/downloads/{download_id}/pause")
     assert pause_resp.status_code == 409
+
+
+@pytest.mark.integration
+async def test_pause_deleted_during_stop_returns_404(client: AsyncClient) -> None:
+    from uuid import UUID
+
+    from dm_api.domain.value_objects.download_status import DownloadStatus
+
+    created = (await client.post("/api/downloads", json={
+        "url": "https://example.com/race.bin", "save_path": "/tmp", "category": "general",
+    })).json()
+    did = created["id"]
+    repo = client._transport.app.state.repo  # type: ignore[attr-defined]
+    task = await repo.get_by_id(UUID(did))
+    task.status = DownloadStatus.DOWNLOADING
+    await repo.update(task)
+
+    async def _stop_then_delete(download_id):
+        await repo.delete(download_id)
+        return True
+
+    # simulate concurrent delete during stop
+    client._transport.app.state.runner.stop = _stop_then_delete
+
+    resp = await client.post(f"/api/downloads/{did}/pause")
+    assert resp.status_code == 404
