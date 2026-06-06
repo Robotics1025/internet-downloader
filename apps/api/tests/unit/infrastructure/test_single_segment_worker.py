@@ -1,12 +1,14 @@
 """SingleSegmentWorker behavior using respx + tmp_path."""
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import httpx
+import pytest
 import respx
 
 from dm_api.domain.entities.download_task import DownloadTask
@@ -109,3 +111,43 @@ async def test_error_message_truncated_to_500_chars(tmp_path: Path) -> None:
     assert task.status == DownloadStatus.FAILED
     assert task.error_message is not None
     assert len(task.error_message) <= 500
+
+
+async def test_cancel_does_not_mark_failed(tmp_path: Path) -> None:
+    async def _slow_stream(request: httpx.Request) -> httpx.Response:
+        async def _body() -> httpx.AsyncByteStream:  # type: ignore[misc]
+            yield b"x" * 1024
+            await asyncio.sleep(60)  # stall mid-stream
+
+        return httpx.Response(200, content=_body())
+
+    transport = httpx.MockTransport(_slow_stream)
+    repo = AsyncMock()
+    task = DownloadTask(
+        id=uuid4(),
+        url="https://example.com/f.bin",
+        file_name="f.bin",
+        save_path=str(tmp_path),
+        total_size=None,
+        downloaded_size=0,
+        status=DownloadStatus.DOWNLOADING,
+        resume_supported=False,
+        segment_count=1,
+        category="general",
+        speed_limit=None,
+        checksum=None,
+        checksum_algorithm=None,
+        error_message=None,
+        created_at=datetime.now(UTC),
+        started_at=None,
+        completed_at=None,
+    )
+    async with httpx.AsyncClient(transport=transport) as client:
+        worker = SingleSegmentWorker(client, repo)
+        run_task = asyncio.create_task(worker.run(task))
+        await asyncio.sleep(0.05)
+        run_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await run_task
+
+    assert task.status != DownloadStatus.FAILED
