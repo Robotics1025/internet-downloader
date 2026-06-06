@@ -256,22 +256,28 @@ async def open_download_file(request: Request, id: UUID) -> Response:
 
 
 @router.delete("/{id}", status_code=204)
-async def delete_download(request: Request, id: UUID) -> Response:
+async def delete_download(request: Request, id: UUID, delete_file: bool = False) -> Response:
     repo = request.app.state.repo
+    runner = request.app.state.runner
     task = await repo.get_by_id(id)
     if task is None:
         raise HTTPException(status_code=404, detail=f"download {id} not found")
+
+    # Stop it first if it's in flight — no more 409.
     if task.status in _ACTIVE_STATUSES:
-        raise HTTPException(
-            status_code=409,
-            detail=f"download is {task.status.value}; cannot delete an in-flight download",
-        )
+        await runner.stop(id)
+
     final_path = Path(task.save_path) / task.file_name
     part_path = final_path.with_suffix(final_path.suffix + ".part")
-    # Best-effort cleanup of leftover partial bytes. The final file is left
-    # alone — the user asked to remove the record, not their finished file.
+    # Always clean up the partial scrap.
     with contextlib.suppress(OSError):
         if part_path.exists():
             part_path.unlink()
+    # Only remove the finished file when the caller explicitly asks.
+    if delete_file:
+        with contextlib.suppress(OSError):
+            if final_path.exists():
+                final_path.unlink()
+
     await repo.delete(id)
     return Response(status_code=204)
