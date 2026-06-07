@@ -973,7 +973,7 @@ export function DownloadRow({
               isActive={isActive}
               isPaused={isPaused}
               isFailed={isFailed}
-              onOpen={isCompleted ? () => { onPlay(download.id); setMenuOpen(false); } : undefined}
+              onOpen={isCompleted && !isMissing ? () => { onPlay(download.id); setMenuOpen(false); } : undefined}
               onReveal={() => { onReveal(download.id); setMenuOpen(false); }}
               onCopyUrl={() => { navigator.clipboard.writeText(download.url).catch(() => {}); setMenuOpen(false); }}
               onPauseResume={(isActive || isPaused) ? () => { onStart(download.id); setMenuOpen(false); } : undefined}
