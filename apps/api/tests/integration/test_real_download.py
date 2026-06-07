@@ -56,10 +56,10 @@ async def test_real_download_end_to_end(
     assert body["status"] == "completed"
     assert body["downloaded_size"] == len(payload)
 
-    downloaded_file = save_dir / "data.bin"
+    downloaded_file = save_dir / "Other" / "data.bin"
     assert downloaded_file.exists()
     assert downloaded_file.read_bytes() == payload
-    assert not (save_dir / "data.bin.part").exists()
+    assert not (save_dir / "Other" / "data.bin.part").exists()
 
 
 @pytest.mark.integration
@@ -124,9 +124,10 @@ async def test_start_with_existing_destination_returns_409(
     (static_file_server.root_dir / "blocked.bin").write_bytes(payload)  # type: ignore[attr-defined]
 
     save_dir = tmp_path / "downloads"
-    save_dir.mkdir()
+    other_dir = save_dir / "Other"
+    other_dir.mkdir(parents=True, exist_ok=True)
     # Pre-create the destination
-    (save_dir / "blocked.bin").write_bytes(b"existing content")
+    (other_dir / "blocked.bin").write_bytes(b"existing content")
 
     url = f"{static_file_server.base_url}/blocked.bin"  # type: ignore[attr-defined]
 

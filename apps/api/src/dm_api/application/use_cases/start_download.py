@@ -51,15 +51,25 @@ class StartDownloadUseCase:
         task = await self._repo.get_by_id(id)
         if task is None:
             raise DownloadNotFoundError(f"download {id} not found")
-        if task.status != DownloadStatus.PENDING:
+        _RESUMABLE = {
+            DownloadStatus.PENDING,
+            DownloadStatus.PAUSED,
+            DownloadStatus.FAILED,
+            DownloadStatus.CANCELLED,
+        }
+        if task.status not in _RESUMABLE:
             raise InvalidStateError(
-                f"download {id} is in status {task.status.value}, must be pending"
+                f"download {id} is in status {task.status.value}; "
+                "only pending/paused/failed/cancelled can be (re)started"
             )
-        if task.media_format_id is None:
+
+        # Fresh PENDING HTTP downloads need a metadata probe + destination check.
+        # Resume/retry skip both: the file (or its .part) already exists and the
+        # worker continues it.
+        if task.status == DownloadStatus.PENDING and task.media_format_id is None:
             destination = Path(task.save_path) / task.file_name
             if destination.exists():
                 raise DestinationExistsError(f"destination already exists: {destination}")
-
             try:
                 metadata = await self._metadata_probe.probe(task.url)
             except Exception as exc:
@@ -69,10 +79,12 @@ class StartDownloadUseCase:
                 raise MetadataProbeError(str(exc)) from exc
             task.total_size = metadata.total_size
 
-        task.resume_supported = False         # forced in 2b — multi-segment is Phase 3
-        task.segment_count = 1                # forced in 2b
+        task.resume_supported = False         # multi-segment is a later phase
+        task.segment_count = 1
+        task.error_message = None
         task.status = DownloadStatus.DOWNLOADING
-        task.started_at = self._clock()
+        if task.started_at is None:
+            task.started_at = self._clock()
         await self._repo.update(task)
 
         self._runner.spawn(task)

@@ -65,8 +65,14 @@ export function useDownloads() {
     return updated;
   }, []);
 
-  const deleteDownload = useCallback(async (id: string) => {
-    await api.deleteDownload(id);
+  const pauseDownload = useCallback(async (id: string) => {
+    const updated = await api.pauseDownload(id);
+    setDownloads((prev) => prev.map((d) => (d.id === id ? updated : d)));
+    return updated;
+  }, []);
+
+  const deleteDownload = useCallback(async (id: string, deleteFile = false) => {
+    await api.deleteDownload(id, deleteFile);
     setDownloads((prev) => prev.filter((d) => d.id !== id));
     setProgress((prev) => {
       if (!(id in prev)) return prev;
@@ -121,6 +127,7 @@ export function useDownloads() {
     loading,
     error,
     startDownload,
+    pauseDownload,
     addDownload,
     deleteDownload,
     refresh: fetchDownloads,

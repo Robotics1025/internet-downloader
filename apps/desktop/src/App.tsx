@@ -10,6 +10,7 @@ import { DownloadRow } from './components/DownloadRow';
 import { DetailPanel } from './components/DetailPanel';
 import { NowPlayingBar } from './components/NowPlayingBar';
 import { AddDownloadDialog } from './components/AddDownloadDialog';
+import { DeleteConfirmDialog } from './components/DeleteConfirmDialog';
 import { InlineMediaPlayer } from './components/InlineMediaPlayer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PlaylistView, buildGroups } from './components/PlaylistView';
@@ -27,7 +28,7 @@ import {
 
 function App() {
   const [theme, setTheme] = useTheme();
-  const { downloads, progress, loading, error, startDownload, addDownload, deleteDownload, refresh } = useDownloads();
+  const { downloads, progress, loading, error, startDownload, pauseDownload, addDownload, deleteDownload, refresh } = useDownloads();
   const [view, setView] = useState<'downloads' | 'settings'>('downloads');
   const [layout, setLayout] = useState<'list' | 'grid'>('list');
   const [sidebarFilter, setSidebarFilter] = useState('cat:video');
@@ -39,6 +40,7 @@ function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [actioning, setActioning] = useState<Record<string, boolean>>({});
+  const [deleteTarget, setDeleteTarget] = useState<import('./types').Download | null>(null);
 
   const playing = playingId ? downloads.find(d => d.id === playingId) ?? null : null;
   const currentTrack = currentTrackId
@@ -174,17 +176,38 @@ function App() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('Delete this download from the list?')) return;
+  async function handlePause(id: string) {
     setActioning(prev => ({ ...prev, [id]: true }));
     try {
-      await deleteDownload(id);
+      await pauseDownload(id);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to pause');
+    } finally {
+      setActioning(prev => ({ ...prev, [id]: false }));
+    }
+  }
+
+  async function performDelete(id: string, deleteFile: boolean) {
+    setActioning(prev => ({ ...prev, [id]: true }));
+    try {
+      await deleteDownload(id, deleteFile);
       if (selectedId === id) setSelectedId(null);
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed to delete');
     } finally {
       setActioning(prev => ({ ...prev, [id]: false }));
     }
+  }
+
+  function handleDelete(id: string) {
+    const d = downloads.find(x => x.id === id);
+    const status = d ? (progress[d.id]?.status ?? d.status) : undefined;
+    if (d && status === 'completed') {
+      setDeleteTarget(d);
+      return;
+    }
+    if (!confirm('Delete this download from the list?')) return;
+    void performDelete(id, false);
   }
 
   async function handleReveal(id: string) {
@@ -305,6 +328,7 @@ function App() {
                 downloads={filtered}
                 progress={progress}
                 onStart={handleStart}
+                onPause={handlePause}
                 onDelete={handleDelete}
                 onPlay={handlePlay}
                 onReveal={handleReveal}
@@ -355,6 +379,7 @@ function App() {
                     download={d}
                     progress={progress[d.id]}
                     onStart={handleStart}
+                    onPause={handlePause}
                     onDelete={handleDelete}
                     onPlay={handlePlay}
                     onReveal={handleReveal}
@@ -418,6 +443,18 @@ function App() {
         <AddDownloadDialog
           onClose={() => setShowAdd(false)}
           onAdd={addDownload}
+        />
+      )}
+
+      {deleteTarget && (
+        <DeleteConfirmDialog
+          download={deleteTarget}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={(deleteFile) => {
+            const id = deleteTarget.id;
+            setDeleteTarget(null);
+            void performDelete(id, deleteFile);
+          }}
         />
       )}
     </div>

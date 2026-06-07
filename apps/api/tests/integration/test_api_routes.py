@@ -32,7 +32,7 @@ async def test_post_create_then_get(client: AsyncClient) -> None:
     assert body["url"] == "https://example.com/file.zip"
     assert body["file_name"] == "file.zip"
     assert body["status"] == "pending"
-    assert body["category"] == "general"
+    assert body["category"] == "archive"
     download_id = body["id"]
 
     get_response = await client.get(f"/api/downloads/{download_id}")
@@ -41,18 +41,19 @@ async def test_post_create_then_get(client: AsyncClient) -> None:
 
 
 @pytest.mark.integration
-async def test_post_with_explicit_save_path_and_category(client: AsyncClient) -> None:
+async def test_post_with_explicit_save_path_and_category(client: AsyncClient, tmp_path: Path) -> None:
+    custom_path = tmp_path / "custom_save"
     response = await client.post(
         "/api/downloads",
         json={
             "url": "https://example.com/movie.mp4",
-            "save_path": "/mnt/external/dl",
+            "save_path": str(custom_path),
             "category": "video",
         },
     )
     assert response.status_code == 201
     body = response.json()
-    assert body["save_path"] == "/mnt/external/dl"
+    assert body["save_path"] == str(custom_path / "Videos")
     assert body["category"] == "video"
 
 
@@ -123,3 +124,141 @@ async def test_health_active_downloads_is_zero_when_all_pending(
     response = await client.get("/api/health")
     assert response.status_code == 200
     assert response.json()["active_downloads"] == 0
+
+
+@pytest.mark.integration
+async def test_pause_active_download_sets_paused(client: AsyncClient) -> None:
+    from uuid import UUID
+
+    from dm_api.domain.value_objects.download_status import DownloadStatus
+
+    # Create a download (starts as pending)
+    create_resp = await client.post(
+        "/api/downloads",
+        json={"url": "https://example.com/file.zip"},
+    )
+    assert create_resp.status_code == 201
+    download_id = create_resp.json()["id"]
+
+    # Force status to DOWNLOADING via the repo that app.state uses
+    repo = client._transport.app.state.repo  # type: ignore[attr-defined]
+    task = await repo.get_by_id(UUID(download_id))
+    assert task is not None
+    task.status = DownloadStatus.DOWNLOADING
+    await repo.update(task)
+
+    # Pause the active download
+    pause_resp = await client.post(f"/api/downloads/{download_id}/pause")
+    assert pause_resp.status_code == 200, pause_resp.text
+    assert pause_resp.json()["status"] == "paused"
+
+
+@pytest.mark.integration
+async def test_pause_non_active_returns_409(client: AsyncClient) -> None:
+    # Create a download — status is PENDING, which is not in _ACTIVE_STATUSES
+    create_resp = await client.post(
+        "/api/downloads",
+        json={"url": "https://example.com/file.zip"},
+    )
+    assert create_resp.status_code == 201
+    download_id = create_resp.json()["id"]
+
+    # Pausing a non-active (pending) download must return 409
+    pause_resp = await client.post(f"/api/downloads/{download_id}/pause")
+    assert pause_resp.status_code == 409
+
+
+@pytest.mark.integration
+async def test_pause_deleted_during_stop_returns_404(client: AsyncClient) -> None:
+    from uuid import UUID
+
+    from dm_api.domain.value_objects.download_status import DownloadStatus
+
+    created = (await client.post("/api/downloads", json={
+        "url": "https://example.com/race.bin", "save_path": "/tmp", "category": "general",
+    })).json()
+    did = created["id"]
+    repo = client._transport.app.state.repo  # type: ignore[attr-defined]
+    task = await repo.get_by_id(UUID(did))
+    task.status = DownloadStatus.DOWNLOADING
+    await repo.update(task)
+
+    async def _stop_then_delete(download_id):
+        await repo.delete(download_id)
+        return True
+
+    # simulate concurrent delete during stop
+    client._transport.app.state.runner.stop = _stop_then_delete
+
+    resp = await client.post(f"/api/downloads/{did}/pause")
+    assert resp.status_code == 404
+
+
+@pytest.mark.integration
+async def test_delete_active_download_succeeds(client: AsyncClient) -> None:
+    from uuid import UUID
+
+    from dm_api.domain.value_objects.download_status import DownloadStatus
+
+    created = (await client.post("/api/downloads", json={
+        "url": "https://example.com/c.bin", "save_path": "/tmp", "category": "general",
+    })).json()
+    did = created["id"]
+    repo = client._transport.app.state.repo  # type: ignore[attr-defined]
+    task = await repo.get_by_id(UUID(did))
+    task.status = DownloadStatus.DOWNLOADING
+    await repo.update(task)
+
+    resp = await client.delete(f"/api/downloads/{did}")
+    assert resp.status_code == 204
+    assert await repo.get_by_id(UUID(did)) is None
+
+
+@pytest.mark.integration
+async def test_delete_file_true_removes_file(client: AsyncClient, tmp_path: Path) -> None:
+    from uuid import UUID
+
+    from dm_api.domain.value_objects.download_status import DownloadStatus
+
+    created = (await client.post("/api/downloads", json={
+        "url": "https://example.com/movie.mp4", "save_path": str(tmp_path),
+        "category": "video", "file_name": "movie.mp4",
+    })).json()
+    did = created["id"]
+    repo = client._transport.app.state.repo  # type: ignore[attr-defined]
+    task = await repo.get_by_id(UUID(did))
+    # Use the real save_path/file_name from the repo to place the file
+    real_file = Path(task.save_path) / task.file_name
+    real_file.parent.mkdir(parents=True, exist_ok=True)
+    real_file.write_bytes(b"data")
+    task.status = DownloadStatus.COMPLETED
+    await repo.update(task)
+
+    resp = await client.delete(f"/api/downloads/{did}?delete_file=true")
+    assert resp.status_code == 204
+    assert not real_file.exists()
+
+
+@pytest.mark.integration
+async def test_delete_file_false_keeps_file(client: AsyncClient, tmp_path: Path) -> None:
+    from uuid import UUID
+
+    from dm_api.domain.value_objects.download_status import DownloadStatus
+
+    created = (await client.post("/api/downloads", json={
+        "url": "https://example.com/keep.mp4", "save_path": str(tmp_path),
+        "category": "video", "file_name": "keep.mp4",
+    })).json()
+    did = created["id"]
+    repo = client._transport.app.state.repo  # type: ignore[attr-defined]
+    task = await repo.get_by_id(UUID(did))
+    # Use the real save_path/file_name from the repo to place the file
+    real_file = Path(task.save_path) / task.file_name
+    real_file.parent.mkdir(parents=True, exist_ok=True)
+    real_file.write_bytes(b"data")
+    task.status = DownloadStatus.COMPLETED
+    await repo.update(task)
+
+    resp = await client.delete(f"/api/downloads/{did}")
+    assert resp.status_code == 204
+    assert real_file.exists()

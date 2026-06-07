@@ -103,34 +103,44 @@ class YtDlpWorker:
         last_persist = 0.0
         last_error_line = ""
         final_path: str | None = None
-        while True:
-            line_bytes = await proc.stdout.readline()
-            if not line_bytes:
-                break
-            line = line_bytes.decode("utf-8", errors="replace").rstrip()
-            if not line:
-                continue
-            m = _PROGRESS_RE.search(line)
-            if m:
-                downloaded = int(m.group(1))
-                total_raw = m.group(2)
-                total = int(total_raw) if total_raw != "NA" else None
-                task.downloaded_size = downloaded
-                if total is not None:
-                    task.total_size = total
-                now = time.monotonic()
-                if now - last_persist >= PERSIST_EVERY_SECONDS:
-                    await self._repo.update(task)
-                    last_persist = now
-                continue
-            md = _DEST_RE.search(line)
-            if md:
-                final_path = md.group(1).strip()
-                continue
-            if line.startswith("ERROR"):
-                last_error_line = line
+        try:
+            while True:
+                line_bytes = await proc.stdout.readline()
+                if not line_bytes:
+                    break
+                line = line_bytes.decode("utf-8", errors="replace").rstrip()
+                if not line:
+                    continue
+                m = _PROGRESS_RE.search(line)
+                if m:
+                    downloaded = int(m.group(1))
+                    total_raw = m.group(2)
+                    total = int(total_raw) if total_raw != "NA" else None
+                    task.downloaded_size = downloaded
+                    if total is not None:
+                        task.total_size = total
+                    now = time.monotonic()
+                    if now - last_persist >= PERSIST_EVERY_SECONDS:
+                        await self._repo.update(task)
+                        last_persist = now
+                    continue
+                md = _DEST_RE.search(line)
+                if md:
+                    final_path = md.group(1).strip()
+                    continue
+                if line.startswith("ERROR"):
+                    last_error_line = line
 
-        rc = await proc.wait()
+            rc = await proc.wait()
+        finally:
+            # If we're being cancelled (pause/cancel), the loop above is
+            # interrupted with the child still running. Terminate it so no
+            # orphaned yt-dlp/ffmpeg process is left behind. The .part file
+            # stays on disk so resume can continue.
+            if proc.returncode is None:
+                with contextlib.suppress(ProcessLookupError):
+                    proc.terminate()
+
         if rc != 0:
             msg = last_error_line or f"yt-dlp exited with code {rc}"
             raise RuntimeError(msg)
