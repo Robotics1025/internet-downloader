@@ -151,3 +151,38 @@ async def test_cancel_does_not_mark_failed(tmp_path: Path) -> None:
             await run_task
 
     assert task.status != DownloadStatus.FAILED
+
+
+async def test_resume_resets_downloaded_size(tmp_path: Path) -> None:
+    payload = b"y" * 4096
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=payload)
+
+    transport = httpx.MockTransport(_handler)
+    repo = AsyncMock()
+    task = DownloadTask(
+        id=uuid4(),
+        url="https://example.com/r.bin",
+        file_name="r.bin",
+        save_path=str(tmp_path),
+        total_size=len(payload),
+        downloaded_size=99999,  # stale value from a previous attempt
+        status=DownloadStatus.DOWNLOADING,
+        resume_supported=False,
+        segment_count=1,
+        category="general",
+        speed_limit=None,
+        checksum=None,
+        checksum_algorithm=None,
+        error_message=None,
+        created_at=datetime.now(UTC),
+        started_at=None,
+        completed_at=None,
+    )
+    async with httpx.AsyncClient(transport=transport) as client:
+        worker = SingleSegmentWorker(client, repo)
+        await worker.run(task)
+
+    assert task.status == DownloadStatus.COMPLETED
+    assert task.downloaded_size == len(payload)  # not 99999 + len(payload)
