@@ -9,6 +9,7 @@ interface DownloadRowProps {
   download: Download;
   progress: ProgressSnapshot | undefined;
   onStart: (id: string) => void;
+  onPause: (id: string) => void;
   onDelete: (id: string) => void;
   onPlay: (id: string) => void;
   onReveal: (id: string) => void;
@@ -431,6 +432,7 @@ export function DownloadRow({
   download,
   progress,
   onStart,
+  onPause,
   onDelete,
   onPlay,
   onReveal,
@@ -595,7 +597,11 @@ export function DownloadRow({
             isFailed={isFailed}
             onReveal={() => { onReveal(download.id); setMenuOpen(false); }}
             onCopyUrl={() => { navigator.clipboard.writeText(download.url).catch(() => {}); setMenuOpen(false); }}
-            onPauseResume={isPaused || isActive ? () => { onStart(download.id); setMenuOpen(false); } : undefined}
+            onPauseResume={
+              isActive ? () => { onPause(download.id); setMenuOpen(false); }
+              : isPaused ? () => { onStart(download.id); setMenuOpen(false); }
+              : undefined
+            }
             onRetry={isFailed ? () => { onStart(download.id); setMenuOpen(false); } : undefined}
             onDelete={() => { onDelete(download.id); setMenuOpen(false); }}
             onClose={() => setMenuOpen(false)}
@@ -735,7 +741,7 @@ export function DownloadRow({
             {isActive && (
               <ActionButton
                 aria-label="Pause download"
-                onClick={(e) => { e.stopPropagation(); }}
+                onClick={(e) => { e.stopPropagation(); onPause(download.id); }}
               >
                 <IcoPause size={13} />
               </ActionButton>
@@ -790,7 +796,11 @@ export function DownloadRow({
                 onOpen={isCompleted ? () => { onPlay(download.id); setMenuOpen(false); } : undefined}
                 onReveal={() => { onReveal(download.id); setMenuOpen(false); }}
                 onCopyUrl={() => { navigator.clipboard.writeText(download.url).catch(() => {}); setMenuOpen(false); }}
-                onPauseResume={(isActive || isPaused) ? () => { onStart(download.id); setMenuOpen(false); } : undefined}
+                onPauseResume={
+                  isActive ? () => { onPause(download.id); setMenuOpen(false); }
+                  : isPaused ? () => { onStart(download.id); setMenuOpen(false); }
+                  : undefined
+                }
                 onRetry={isFailed ? () => { onStart(download.id); setMenuOpen(false); } : undefined}
                 onDelete={() => { onDelete(download.id); setMenuOpen(false); }}
                 onClose={() => setMenuOpen(false)}
@@ -920,7 +930,7 @@ export function DownloadRow({
           {isActive && (
             <ActionButton
               aria-label="Pause download"
-              onClick={(e) => { e.stopPropagation(); }}
+              onClick={(e) => { e.stopPropagation(); onPause(download.id); }}
             >
               <IcoPause size={14} />
             </ActionButton>
@@ -975,7 +985,11 @@ export function DownloadRow({
               onOpen={isCompleted ? () => { onPlay(download.id); setMenuOpen(false); } : undefined}
               onReveal={() => { onReveal(download.id); setMenuOpen(false); }}
               onCopyUrl={() => { navigator.clipboard.writeText(download.url).catch(() => {}); setMenuOpen(false); }}
-              onPauseResume={(isActive || isPaused) ? () => { onStart(download.id); setMenuOpen(false); } : undefined}
+              onPauseResume={
+                isActive ? () => { onPause(download.id); setMenuOpen(false); }
+                : isPaused ? () => { onStart(download.id); setMenuOpen(false); }
+                : undefined
+              }
               onRetry={isFailed ? () => { onStart(download.id); setMenuOpen(false); } : undefined}
               onDelete={() => { onDelete(download.id); setMenuOpen(false); }}
               onClose={() => setMenuOpen(false)}
