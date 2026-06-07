@@ -180,3 +180,22 @@ async def test_update_preserves_all_other_fields(db_url: str) -> None:
     assert fetched.category == "archive"
     assert fetched.status == DownloadStatus.PAUSED
 
+
+@pytest.mark.integration
+async def test_file_missing_round_trip(db_url: str) -> None:
+    repo = SQLiteDownloadRepository(db_url)
+    task = _make_task()
+    task.file_missing = True
+    await repo.save(task)
+
+    loaded = await repo.get_by_id(task.id)
+    assert loaded is not None
+    assert loaded.file_missing is True
+
+    loaded.file_missing = False
+    await repo.update(loaded)
+
+    reloaded = await repo.get_by_id(task.id)
+    assert reloaded is not None
+    assert reloaded.file_missing is False
+

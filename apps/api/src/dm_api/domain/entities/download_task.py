@@ -29,3 +29,4 @@ class DownloadTask:
     started_at: datetime | None
     completed_at: datetime | None
     media_format_id: str | None = None
+    file_missing: bool = False

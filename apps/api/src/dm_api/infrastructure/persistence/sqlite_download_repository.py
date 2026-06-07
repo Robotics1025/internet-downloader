@@ -45,6 +45,7 @@ def _row_to_task(row: aiosqlite.Row) -> DownloadTask:
         started_at=datetime.fromisoformat(row["started_at"]) if row["started_at"] else None,
         completed_at=datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None,
         media_format_id=row["media_format_id"] if "media_format_id" in row.keys() else None,
+        file_missing=bool(row["file_missing"]) if "file_missing" in row.keys() else False,
     )
 
 
@@ -72,6 +73,7 @@ class SQLiteDownloadRepository:
             task.started_at.isoformat() if task.started_at else None,
             task.completed_at.isoformat() if task.completed_at else None,
             task.media_format_id,
+            int(task.file_missing),
         )
         async with aiosqlite.connect(self._db_path) as conn:
             conn.row_factory = aiosqlite.Row
@@ -82,8 +84,8 @@ class SQLiteDownloadRepository:
                     id, url, file_name, save_path, total_size, downloaded_size,
                     status, resume_supported, segment_count, category, speed_limit,
                     checksum, checksum_algorithm, error_message,
-                    created_at, started_at, completed_at, media_format_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    created_at, started_at, completed_at, media_format_id, file_missing
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 params,
             )
@@ -118,6 +120,7 @@ class SQLiteDownloadRepository:
             task.started_at.isoformat() if task.started_at else None,
             task.completed_at.isoformat() if task.completed_at else None,
             task.media_format_id,
+            int(task.file_missing),
             str(task.id),
         )
         async with aiosqlite.connect(self._db_path) as conn:
@@ -131,7 +134,7 @@ class SQLiteDownloadRepository:
                     resume_supported = ?, segment_count = ?, category = ?,
                     speed_limit = ?, checksum = ?, checksum_algorithm = ?,
                     error_message = ?, created_at = ?, started_at = ?, completed_at = ?,
-                    media_format_id = ?
+                    media_format_id = ?, file_missing = ?
                 WHERE id = ?
                 """,
                 params,
