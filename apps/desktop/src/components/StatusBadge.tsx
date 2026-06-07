@@ -2,6 +2,7 @@ import type { DownloadStatus } from '../types';
 
 interface StatusBadgeProps {
   status: DownloadStatus;
+  missing?: boolean;
 }
 
 const pulseKeyframes = `
@@ -59,8 +60,15 @@ const STATUS_CONFIG: Record<
   },
 };
 
-export function StatusBadge({ status }: StatusBadgeProps) {
-  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
+export function StatusBadge({ status, missing = false }: StatusBadgeProps) {
+  const cfg = missing
+    ? {
+        bg: 'var(--dm-color-status-danger-surface)',
+        fg: 'var(--dm-color-status-danger-text)',
+        label: 'Missing',
+        dot: false,
+      }
+    : (STATUS_CONFIG[status] ?? STATUS_CONFIG.pending);
 
   return (
     <>

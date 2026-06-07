@@ -27,6 +27,7 @@ export interface Download {
   started_at: string | null;
   completed_at: string | null;
   media_format_id: string | null;
+  file_missing: boolean;
 }
 
 export interface MediaFormat {
