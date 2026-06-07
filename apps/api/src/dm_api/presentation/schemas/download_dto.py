@@ -42,6 +42,7 @@ class DownloadDTO(BaseModel):
     started_at: datetime | None
     completed_at: datetime | None
     media_format_id: str | None
+    file_missing: bool
 
     @classmethod
     def from_entity(cls, task: DownloadTask) -> DownloadDTO:
@@ -64,4 +65,5 @@ class DownloadDTO(BaseModel):
             started_at=task.started_at,
             completed_at=task.completed_at,
             media_format_id=task.media_format_id,
+            file_missing=task.file_missing,
         )

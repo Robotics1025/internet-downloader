@@ -124,3 +124,35 @@ async def test_health_active_downloads_is_zero_when_all_pending(
     response = await client.get("/api/health")
     assert response.status_code == 200
     assert response.json()["active_downloads"] == 0
+
+
+@pytest.mark.integration
+async def test_reconcile_marks_missing_file(client: AsyncClient, tmp_path: Path) -> None:
+    from uuid import UUID
+
+    from dm_api.domain.value_objects.download_status import DownloadStatus
+
+    f = tmp_path / "vid.mp4"
+    f.write_bytes(b"data")
+    created = (await client.post("/api/downloads", json={
+        "url": "https://example.com/vid.mp4", "save_path": str(tmp_path),
+        "category": "video", "file_name": "vid.mp4",
+    })).json()
+    did = created["id"]
+    assert created["file_missing"] is False  # DTO exposes the flag
+
+    state = client._transport.app.state  # type: ignore[attr-defined]
+    repo = state.repo
+    task = await repo.get_by_id(UUID(did))
+    # Point the row at the real file we created (save_path may be category-adjusted).
+    task.save_path = str(tmp_path)
+    task.file_name = "vid.mp4"
+    task.status = DownloadStatus.COMPLETED
+    await repo.update(task)
+
+    await state.reconcile_service.reconcile_once()
+    assert (await client.get(f"/api/downloads/{did}")).json()["file_missing"] is False
+
+    f.unlink()
+    await state.reconcile_service.reconcile_once()
+    assert (await client.get(f"/api/downloads/{did}")).json()["file_missing"] is True
