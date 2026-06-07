@@ -10,6 +10,8 @@ import {
   Plus,
 } from "lucide-react";
 
+import { open } from "@tauri-apps/plugin-dialog";
+
 import { useSettings, type Settings, type Quality } from "../hooks/useSettings";
 import { useTheme } from "../hooks/useTheme";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
@@ -537,11 +539,27 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
     [setTheme, patch],
   );
 
-  const handleBrowseDir = useCallback(() => {
+  const handleBrowseDir = useCallback(async () => {
     const current = draft?.download_dir ?? "";
-    const next = window.prompt("Enter download directory path:", current);
-    if (next !== null) {
-      patch("download_dir", next.trim());
+    // Browser dev server (not inside Tauri): keep the typed-path fallback.
+    if (!("__TAURI_INTERNALS__" in window)) {
+      const next = window.prompt("Enter download directory path:", current);
+      if (next !== null) {
+        patch("download_dir", next.trim());
+      }
+      return;
+    }
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        defaultPath: current || undefined,
+      });
+      if (typeof selected === "string") {
+        patch("download_dir", selected);
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Couldn't open the folder picker");
     }
   }, [draft, patch]);
 
