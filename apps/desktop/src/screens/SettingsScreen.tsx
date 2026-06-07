@@ -549,13 +549,17 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
       }
       return;
     }
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      defaultPath: current || undefined,
-    });
-    if (typeof selected === "string") {
-      patch("download_dir", selected);
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        defaultPath: current || undefined,
+      });
+      if (typeof selected === "string") {
+        patch("download_dir", selected);
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Couldn't open the folder picker");
     }
   }, [draft, patch]);
 
