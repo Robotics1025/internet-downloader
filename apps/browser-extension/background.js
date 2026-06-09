@@ -62,7 +62,7 @@ async function discoverPort() {
       return stored;
     }
   }
-  // 3. Primary range — what the API uses by default.
+  // 3. Primary range — what the API uses by default (it now binds 6543).
   for (const port of PRIMARY_PORT_RANGE) {
     if (await _probePort(port)) {
       _cachedPort = port;
@@ -71,37 +71,12 @@ async function discoverPort() {
       return port;
     }
   }
-  // 4. Last resort: scan a chunk of the Linux ephemeral range in parallel.
-  //    Linux defaults to 32768–60999. We probe in batches of 100 to keep
-  //    things bounded; ~28k ports total but parallelism makes it ~30 s worst
-  //    case, which is fine for a fallback rarely-hit path.
-  const ephemeralFound = await _scanEphemeralRange();
-  if (ephemeralFound) {
-    _cachedPort = ephemeralFound;
-    _cachedAt = Date.now();
-    await _saveStoredPort(ephemeralFound);
-    return ephemeralFound;
-  }
+  // Not found on the known range — the app is almost certainly not running.
+  // Fail fast with an actionable message (no slow ephemeral scan).
   _cachedPort = null;
   throw new Error(
     "Cannot reach DownloadMgr on 127.0.0.1. Is the desktop app running?",
   );
-}
-
-async function _scanEphemeralRange() {
-  const START = 32768;
-  const END = 60999;
-  const BATCH = 200;
-  for (let base = START; base <= END; base += BATCH) {
-    const tasks = [];
-    for (let p = base; p < Math.min(base + BATCH, END + 1); p++) {
-      tasks.push(_probePort(p, 250).then(ok => (ok ? p : null)));
-    }
-    const results = await Promise.all(tasks);
-    const hit = results.find(p => p !== null);
-    if (hit) return hit;
-  }
-  return null;
 }
 
 async function apiBase() {

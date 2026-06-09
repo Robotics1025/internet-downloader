@@ -7,6 +7,7 @@ interface PlaylistViewProps {
   downloads: Download[];
   progress: Record<string, ProgressSnapshot | undefined>;
   onStart: (id: string) => void;
+  onPause: (id: string) => void;
   onDelete: (id: string) => void;
   onPlay: (id: string) => void;
   onReveal: (id: string) => void;
@@ -85,7 +86,7 @@ function totalBytes(items: Download[]): number {
 }
 
 export function PlaylistView({
-  downloads, progress, onStart, onDelete, onPlay, onReveal, onSelect, selectedId, actioning,
+  downloads, progress, onStart, onPause, onDelete, onPlay, onReveal, onSelect, selectedId, actioning,
   activeGroupId, onActiveGroupChange,
 }: PlaylistViewProps) {
   const [customNames, setCustomNames] = useState<Record<string, string>>(() => {
@@ -367,6 +368,7 @@ export function PlaylistView({
               download={d}
               progress={progress[d.id]}
               onStart={onStart}
+              onPause={onPause}
               onDelete={onDelete}
               onPlay={onPlay}
               onReveal={onReveal}

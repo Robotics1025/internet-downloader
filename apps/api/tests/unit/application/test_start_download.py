@@ -131,3 +131,73 @@ async def test_probe_failure_marks_task_failed_and_raises(tmp_path: Path) -> Non
     assert persisted.error_message is not None
     assert "dns nx" in persisted.error_message
     runner.spawn.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Resume / retry tests (Task 4)
+# ---------------------------------------------------------------------------
+
+
+def _make_task() -> DownloadTask:
+    return DownloadTask(
+        id=uuid4(),
+        url="https://example.com/file.zip",
+        file_name="file.zip",
+        save_path="/tmp",
+        total_size=None,
+        downloaded_size=0,
+        status=DownloadStatus.PENDING,
+        resume_supported=False,
+        segment_count=1,
+        category="general",
+        speed_limit=None,
+        checksum=None,
+        checksum_algorithm=None,
+        error_message=None,
+        created_at=datetime.now(UTC),
+        started_at=None,
+        completed_at=None,
+    )
+
+
+async def test_resume_from_paused_respawns() -> None:
+    task = _make_task()
+    task.status = DownloadStatus.PAUSED
+    task.media_format_id = "bv*+ba/best"
+    repo = AsyncMock()
+    repo.get_by_id.return_value = task
+    runner = MagicMock()
+    uc = _make_use_case(repo, AsyncMock(), runner)
+
+    result = await uc.execute(task.id)
+
+    assert result.status == DownloadStatus.DOWNLOADING
+    runner.spawn.assert_called_once_with(task)
+
+
+async def test_retry_from_failed_clears_error() -> None:
+    task = _make_task()
+    task.status = DownloadStatus.FAILED
+    task.error_message = "boom"
+    task.media_format_id = "bv*+ba/best"
+    repo = AsyncMock()
+    repo.get_by_id.return_value = task
+    runner = MagicMock()
+    uc = _make_use_case(repo, AsyncMock(), runner)
+
+    result = await uc.execute(task.id)
+
+    assert result.status == DownloadStatus.DOWNLOADING
+    assert result.error_message is None
+    runner.spawn.assert_called_once()
+
+
+async def test_completed_cannot_be_restarted() -> None:
+    task = _make_task()
+    task.status = DownloadStatus.COMPLETED
+    repo = AsyncMock()
+    repo.get_by_id.return_value = task
+    uc = _make_use_case(repo, AsyncMock(), MagicMock())
+
+    with pytest.raises(InvalidStateError):
+        await uc.execute(task.id)

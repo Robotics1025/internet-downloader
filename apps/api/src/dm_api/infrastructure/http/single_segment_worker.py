@@ -57,6 +57,13 @@ class SingleSegmentWorker:
         async with self._client.stream("GET", task.url) as response:
             response.raise_for_status()
             async with aiofiles.open(part_path, "wb") as f:
+                # Opening in "wb" truncates the .part file to 0 bytes and we
+                # restream from the start with no Range header (true byte-range
+                # resume is out of scope for now). On a resumed/retried download,
+                # task.downloaded_size may still hold a stale value from a prior
+                # attempt — reset it to 0 so progress accounting matches the
+                # truncated file and stays honest rather than overcounting.
+                task.downloaded_size = 0
                 last_persist_bytes = task.downloaded_size
                 last_persist_ts = time.monotonic()
                 async for chunk in response.aiter_bytes(chunk_size=CHUNK_SIZE_BYTES):

@@ -74,7 +74,7 @@ pub async fn start(app: &AppHandle) -> Result<u16, ShellError> {
         .shell()
         .sidecar("dm-api")
         .map_err(|e| ShellError::SpawnSidecar(e.to_string()))?
-        .args(["--port", "0"]);
+        .args(["--port", "6543"]);
     if let Some(dir) = app_data_dir {
         write_log("shell", &format!("DM_DATA_DIR={}", dir));
         command = command.env("DM_DATA_DIR", dir);
