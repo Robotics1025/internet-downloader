@@ -459,6 +459,7 @@ export function DownloadRow({
   const isCompleted = status === 'completed';
   const isPaused = status === 'paused';
   const isFailed = status === 'failed';
+  const isMissing = isCompleted && download.file_missing;
   const canStart = download.status === 'pending' || download.status === 'failed';
 
   const ext = fileExtLabel(download.file_name);
@@ -494,7 +495,7 @@ export function DownloadRow({
           transition: `background var(--dm-duration-fast) var(--dm-easing-standard)`,
         }}
         onClick={() => onSelect(download.id)}
-        onDoubleClick={(e) => { e.preventDefault(); if (isCompleted) onPlay(download.id); }}
+        onDoubleClick={(e) => { e.preventDefault(); if (isCompleted && !isMissing) onPlay(download.id); }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => { setIsHovered(false); setMenuOpen(false); }}
       >
@@ -563,7 +564,7 @@ export function DownloadRow({
 
         {/* Status */}
         <div style={{ width: '96px', display: 'flex', justifyContent: 'flex-end' }}>
-          <StatusBadge status={status} />
+          <StatusBadge status={status} missing={isMissing} />
         </div>
 
         {/* Actions */}
@@ -647,7 +648,7 @@ export function DownloadRow({
           gap: '8px',
         }}
         onClick={() => onSelect(download.id)}
-        onDoubleClick={(e) => { e.preventDefault(); if (isCompleted) onPlay(download.id); }}
+        onDoubleClick={(e) => { e.preventDefault(); if (isCompleted && !isMissing) onPlay(download.id); }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => { setIsHovered(false); setMenuOpen(false); }}
         onContextMenu={(e) => { e.preventDefault(); setMenuOpen(true); }}
@@ -731,7 +732,7 @@ export function DownloadRow({
                 {Math.round(percent)}%
               </span>
             ) : (
-              <StatusBadge status={status} />
+              <StatusBadge status={status} missing={isMissing} />
             )}
           </div>
 
@@ -747,8 +748,8 @@ export function DownloadRow({
               </ActionButton>
             )}
 
-            {/* Play/Open (when completed) */}
-            {isCompleted && (
+            {/* Play/Open (when completed, file present) */}
+            {isCompleted && !isMissing && (
               <ActionButton
                 aria-label={isMedia ? "Play file" : "Open file"}
                 onClick={(e) => { e.stopPropagation(); onPlay(download.id); }}
@@ -793,7 +794,7 @@ export function DownloadRow({
                 isActive={isActive}
                 isPaused={isPaused}
                 isFailed={isFailed}
-                onOpen={isCompleted ? () => { onPlay(download.id); setMenuOpen(false); } : undefined}
+                onOpen={isCompleted && !isMissing ? () => { onPlay(download.id); setMenuOpen(false); } : undefined}
                 onReveal={() => { onReveal(download.id); setMenuOpen(false); }}
                 onCopyUrl={() => { navigator.clipboard.writeText(download.url).catch(() => {}); setMenuOpen(false); }}
                 onPauseResume={
@@ -837,7 +838,7 @@ export function DownloadRow({
         boxSizing: 'border-box',
       }}
       onClick={() => onSelect(download.id)}
-      onDoubleClick={(e) => { e.preventDefault(); if (isCompleted) onPlay(download.id); }}
+      onDoubleClick={(e) => { e.preventDefault(); if (isCompleted && !isMissing) onPlay(download.id); }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => { setIsHovered(false); setMenuOpen(false); }}
       onContextMenu={(e) => { e.preventDefault(); setMenuOpen(true); }}
@@ -920,7 +921,7 @@ export function DownloadRow({
               {Math.round(percent)}%
             </span>
           ) : (
-            <StatusBadge status={status} />
+            <StatusBadge status={status} missing={isMissing} />
           )}
         </div>
 
@@ -936,8 +937,8 @@ export function DownloadRow({
             </ActionButton>
           )}
 
-          {/* Play/Open (when completed) */}
-          {isCompleted && (
+          {/* Play/Open (when completed, file present) */}
+          {isCompleted && !isMissing && (
             <ActionButton
               aria-label={isMedia ? "Play file" : "Open file"}
               onClick={(e) => { e.stopPropagation(); onPlay(download.id); }}
@@ -982,7 +983,7 @@ export function DownloadRow({
               isActive={isActive}
               isPaused={isPaused}
               isFailed={isFailed}
-              onOpen={isCompleted ? () => { onPlay(download.id); setMenuOpen(false); } : undefined}
+              onOpen={isCompleted && !isMissing ? () => { onPlay(download.id); setMenuOpen(false); } : undefined}
               onReveal={() => { onReveal(download.id); setMenuOpen(false); }}
               onCopyUrl={() => { navigator.clipboard.writeText(download.url).catch(() => {}); setMenuOpen(false); }}
               onPauseResume={

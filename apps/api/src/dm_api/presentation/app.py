@@ -135,6 +135,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     progress_service.start()
     app.state.progress_service = progress_service
 
+    from dm_api.application.services.reconcile_service import ReconcileService
+    reconcile_service = ReconcileService(repo)
+    reconcile_service.start()
+    app.state.reconcile_service = reconcile_service
+
     async with create_http_client() as http_client:
         metadata_probe = HttpxMetadataProbe(http_client)
 
@@ -173,6 +178,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             yield
         finally:
             await progress_service.stop()
+            await reconcile_service.stop()
             await sa_engine.dispose()
 
 
