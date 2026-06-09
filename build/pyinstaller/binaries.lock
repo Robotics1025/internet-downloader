@@ -7,7 +7,10 @@ url = https://github.com/yt-dlp/yt-dlp/releases/download/2026.03.17/yt-dlp_linux
 sha256 = c2b0189f581fe4a2ddd41954f1bcb7d327db04b07ed0dea97e4f1b3e09b5dd8e
 
 [ffmpeg.linux-x86_64]
-version = 7.1
-url = https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
-sha256 = abda8d77ce8309141f83ab8edf0596834087c52467f6badf376a6a2a4c87cf67
-archive_member = ffmpeg-7.0.2-amd64-static/ffmpeg
+# Sourced from BtbN/FFmpeg-Builds (GitHub-hosted, dated release) for reliable CI
+# fetches. johnvansickle.com rejected automated requests (HTTP 415) and served a
+# rolling build whose dir name/sha drifted, so the pin kept going stale.
+version = 7.1.4
+url = https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-06-08-14-24/ffmpeg-n7.1.4-9-gc06af95f12-linux64-gpl-7.1.tar.xz
+sha256 = 3604f14f9b5545d11f3431510cc5c2b3490bf2daf82902399d1408dcc8a58c94
+archive_member = ffmpeg-n7.1.4-9-gc06af95f12-linux64-gpl-7.1/bin/ffmpeg

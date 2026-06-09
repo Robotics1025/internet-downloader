@@ -72,7 +72,8 @@ fetch_ffmpeg() {
   fi
   tar -C "$OUT_DIR" -xJf "$archive" "$member"
   mv "$OUT_DIR/$member" "$dest"
-  rm -rf "$OUT_DIR/$(dirname "$member")" "$archive"
+  # Remove the whole extracted tree (member may be nested, e.g. <root>/bin/ffmpeg).
+  rm -rf "$OUT_DIR/${member%%/*}" "$archive"
   chmod +x "$dest"
   "$dest" -version | head -1
 }
